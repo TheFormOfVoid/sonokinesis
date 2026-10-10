@@ -45,13 +45,14 @@ internal sealed class HazardRenderer
     /// concatenated matrix (translation in world units, y up); <paramref name="hazardZ"/> is the depth
     /// just in front of the players.
     /// </summary>
-    public List<DrawItem> Draw(LevelEvaluator ev, double t, Matrix4x4 camera, float hazardZ)
+    public List<DrawItem> Draw(LevelEvaluator ev, double t, Matrix4x4 camera, float hazardZ, float overlayZ)
     {
         ev.Collect(t, items);
 
         float camX = camera.m03, camY = camera.m13;
         float zoom = Mathf.Sqrt(camera.m00 * camera.m00 + camera.m10 * camera.m10);
         if (zoom <= 0.0001f) zoom = 1;
+        float camRot = Mathf.Atan2(camera.m10, camera.m00) * Mathf.Rad2Deg;
 
         DrawBackground(ev, t);
 
@@ -73,12 +74,12 @@ internal sealed class HazardRenderer
             var idx = g.Indices;
             for (int k = 0; k < idx.Length; k++) hazards.AddIndex(baseIndex + idx[k]);
         }
-        hazards.End(new Vector3(camX, camY, hazardZ), zoom);
+        hazards.End(new Vector3(camX, camY, hazardZ), zoom, camRot);
 
         ev.Flashes(t, flashes);
         overlay.Begin(flashes.Count * 4, flashes.Count * 6);
         foreach (var f in flashes) overlay.AddQuad(0, 0, FullScreenW, FullScreenH, ToColor32(f));
-        overlay.End(new Vector3(0, 0, hazardZ - 0.003f), 1);
+        overlay.End(new Vector3(0, 0, overlayZ), 1);
         return items;
     }
 
@@ -224,7 +225,7 @@ internal sealed class HazardRenderer
             AddIndex(b); AddIndex(b + 3); AddIndex(b + 2);
         }
 
-        public void End(Vector3 position, float scale)
+        public void End(Vector3 position, float scale, float rotationDeg = 0)
         {
             // Collapse whatever part of the index buffer was used last frame but not this one.
             int clearTo = Math.Min(lastUsedI, capacityI);
@@ -238,6 +239,7 @@ internal sealed class HazardRenderer
 
             go.transform.position = position;
             go.transform.localScale = new Vector3(scale, scale, 1);
+            go.transform.rotation = Quaternion.Euler(0, 0, rotationDeg);
         }
 
         public void Destroy() { if (go != null) UnityEngine.Object.Destroy(go); }

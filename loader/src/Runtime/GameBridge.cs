@@ -113,6 +113,47 @@ internal static class GameBridge
         catch { return Matrix4x4.identity; }
     }
 
+    /// <summary>
+    /// Adds to the gameplay camera container's rotation (degrees) and position (game units). The
+    /// container holds players, game effects and the layer our hazards follow.
+    /// </summary>
+    public static bool OffsetCamera(float rotation, float x, float y)
+    {
+        try
+        {
+            var c = CameraFlashContainers.instance?.container;
+            if (c == null) return false;
+            c.rotation += rotation;
+            c.x += x;
+            c.y += y;
+            return true;
+        }
+        catch { return false; }
+    }
+
+    // Level sound names and the game sounds they play (the game's own audio, loaded by the game).
+    private static readonly Dictionary<string, string> soundNames = new()
+    {
+        // What the game itself plays when a player dies, is hit, or comes back (checked in game).
+        ["playerDeath"] = "ID_SFX_EXPLOSION_5",
+        ["playerHit"] = "ID_SFX_HIT_1",
+        ["playerRespawn"] = "ID_SFX_POWERUP_2",
+        ["explosion"] = "SFX_PORTAL_EXPLOSION_V01",
+    };
+
+    /// <summary>Plays one of the game's sounds by level sound name (or the game's own sound id).</summary>
+    public static void PlayGameSound(string name, float volume)
+    {
+        try
+        {
+            if (name == null) return;
+            var field = soundNames.TryGetValue(name, out var id) ? id : name;
+            var prop = typeof(ModelSoundEnum).GetProperty(field, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            if (prop?.GetValue(null) is ModelSound sound) JukeBox.playSound(sound, volume);
+        }
+        catch (Exception e) { Plugin.Logger.LogWarning($"sound {name}: {e.Message}"); }
+    }
+
     /// <summary>Hides the game's background art layers so the level's own background shows.</summary>
     public static void HideGameBackground()
     {
@@ -135,9 +176,17 @@ internal static class GameBridge
     /// Depth of the front-most player sprite. The game assigns sprite depth in draw order, and its own
     /// hazards come right after the players, so Beatform draws just in front of this value.
     /// </summary>
-    public static float FrontHeroZ()
+    public static float FrontHeroZ() => HeroZRange().Front;
+
+    private static float lastHeroBackZ = -0.015f;
+
+    /// <summary>
+    /// Depth of the nearest and the farthest drawn part of any player (smaller z is nearer). Hazards
+    /// go just behind the farthest part so players stay visible on top of them, as in the game.
+    /// </summary>
+    public static (float Front, float Back) HeroZRange()
     {
-        float best = float.MaxValue;
+        float front = float.MaxValue, back = float.MinValue;
         try
         {
             var cols = Hero.allCollisionEnemy;
@@ -145,15 +194,15 @@ internal static class GameBridge
             {
                 var hero = cols[i]?.actor?.TryCast<Hero>();
                 var root = hero?.heroRenderer?.heroContainerMc;
-                if (root != null) MinShapeZ(root, ref best, 0);
+                if (root != null) ShapeZRange(root, ref front, ref back, 0);
             }
         }
         catch { }
-        if (best != float.MaxValue) lastHeroZ = best;
-        return lastHeroZ;
+        if (front != float.MaxValue) { lastHeroZ = front; lastHeroBackZ = back; }
+        return (lastHeroZ, lastHeroBackZ);
     }
 
-    private static void MinShapeZ(DisplayObject d, ref float best, int depth)
+    private static void ShapeZRange(DisplayObject d, ref float front, ref float back, int depth)
     {
         if (d == null || depth > 6) return;
         if (d.hasMetaGo)
@@ -162,12 +211,13 @@ internal static class GameBridge
             if (go != null && go.transform != null)
             {
                 float z = go.transform.position.z;
-                if (z < best) best = z;
+                if (z < front) front = z;
+                if (z > back) back = z;
             }
         }
         var c = d.TryCast<DisplayObjectContainer>();
         if (c == null) return;
-        for (var ch = c.firstChild; ch != null; ch = ch.nextSibling) MinShapeZ(ch, ref best, depth + 1);
+        for (var ch = c.firstChild; ch != null; ch = ch.nextSibling) ShapeZRange(ch, ref front, ref back, depth + 1);
     }
 
     public static void CameraKick(float angleDeg, int force)

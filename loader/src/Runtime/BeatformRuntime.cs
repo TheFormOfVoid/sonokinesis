@@ -104,9 +104,10 @@ public class BeatformRuntime : MonoBehaviour
         long t0 = Settings.DevConsole ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         GameBridge.Heroes(heroes);
         UpdatePlayers(level.Evaluator);
-        float heroZ = GameBridge.FrontHeroZ();
+        var heroZ = GameBridge.HeroZRange();
         long t1 = Settings.DevConsole ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
-        var items = renderer.Draw(level.Evaluator, t, GameBridge.GameplayLayerMatrix(), heroZ - 0.004f);
+        // Hazards just behind the players (players stay visible on top), flashes in front of everything.
+        var items = renderer.Draw(level.Evaluator, t, GameBridge.GameplayLayerMatrix(), heroZ.Back + 0.004f, heroZ.Front - 0.004f);
         long t2 = Settings.DevConsole ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
 
         if (!frozen)
@@ -118,7 +119,9 @@ public class BeatformRuntime : MonoBehaviour
                 GameBridge.HitHero(h, (float)c.X, (float)c.Y);
             }
             RunShakes(level.Data, t);
+            RunSounds(level.Data, t);
         }
+        ApplySway(level.Evaluator.SwayAt(t));
         if (Settings.DevConsole)
         {
             double ms = 1000.0 / System.Diagnostics.Stopwatch.Frequency;
@@ -145,6 +148,37 @@ public class BeatformRuntime : MonoBehaviour
             });
         }
         evaluator.Players = players;
+    }
+
+    /// <summary>Sound events play when playback crosses them, like shakes; jumps skip them.</summary>
+    [HideFromIl2Cpp]
+    private void RunSounds(LevelData data, double t)
+    {
+        if (double.IsNaN(lastSongTime) || t <= lastSongTime || t - lastSongTime >= 250) return;
+        foreach (var e in data.Events)
+        {
+            if (e.T > t) break;
+            if (e.Type == Core.EventType.Sound && e.T > lastSongTime) GameBridge.PlayGameSound(e.Sound, (float)e.Volume);
+        }
+    }
+
+    private float swayRot, swayX, swayY;
+
+    /// <summary>
+    /// Turns and moves the game's gameplay container by the level's sway. Only the change since the
+    /// last frame is applied, so the game's own camera moves (kicks, shakes) keep working.
+    /// </summary>
+    private void ApplySway((double Rotation, double X, double Y) sway)
+    {
+        float r = (float)sway.Rotation, x = (float)sway.X, y = (float)sway.Y;
+        if (r == swayRot && x == swayX && y == swayY) return;
+        if (GameBridge.OffsetCamera(r - swayRot, x - swayX, y - swayY)) { swayRot = r; swayX = x; swayY = y; }
+    }
+
+    private void ResetSway()
+    {
+        if (swayRot != 0 || swayX != 0 || swayY != 0) GameBridge.OffsetCamera(-swayRot, -swayX, -swayY);
+        swayRot = swayX = swayY = 0;
     }
 
     /// <summary>Shake events fire when playback crosses their start; jumps (rewinds, seeks) skip them.</summary>
@@ -193,6 +227,7 @@ public class BeatformRuntime : MonoBehaviour
         activeShakes.Clear();
         lastSongTime = double.NaN;
         clock.Reset();
+        ResetSway();
         sessionStartedAt = 0;
         sessionSeenInGame = false;
         CustomSession.End();

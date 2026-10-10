@@ -40,6 +40,7 @@ public sealed class LevelEvaluator
     private readonly double binOrigin;
     private readonly Rgba[] backgroundStartColors;
     private readonly List<LevelEvent> backgroundEvents = new();
+    private readonly List<LevelEvent> swayEvents = new();
     private readonly Dictionary<LevelObject, ImposterSim> sims = new();
     private static readonly ShapeDef pulseRing = new() { Type = ShapeType.Ring, Thickness = ImposterSim.RingThickness };
     /// <summary>Trail copies are a few units wide, so circles use a 10-sided polygon there.</summary>
@@ -64,6 +65,7 @@ public sealed class LevelEvaluator
         }
 
         foreach (var e in level.Events) if (e.Type == EventType.Background) backgroundEvents.Add(e);
+        foreach (var e in level.Events) if (e.Type == EventType.Sway) swayEvents.Add(e);
         backgroundStartColors = new Rgba[backgroundEvents.Count];
         var cur = level.Background;
         for (int i = 0; i < backgroundEvents.Count; i++)
@@ -255,12 +257,25 @@ public sealed class LevelEvaluator
         // Alpha of the whole object (phase and opacity), applied to its effects too.
         float baseA = o.Color.A > 0 ? color.A / o.Color.A : 0;
         var shape = ShapeGeometry.For(o.Shape);
+        // Polygons (triangles…) point their first vertex, which is "up" in unit space, along the heading.
+        double face = o.Shape.Type == ShapeType.Polygon || o.Shape.Type == ShapeType.Star || o.Shape.Type == ShapeType.Spikes ? 90 : 0;
         if (o.Imposter.Effects && phase != Phase.Warning)
         {
             var ring = ShapeGeometry.For(pulseRing);
             var copy = o.Shape.Type == ShapeType.Circle ? ShapeGeometry.For(trailCircle) : shape;
             foreach (var p in sim.Pulses)
             {
+                if (o.Imposter.Pulse == DashPulse.Disk)
+                {
+                    // A disk 1.3x the body that grows and hollows out into a ring while it fades.
+                    double q = Math.Clamp((p.Scale - 0.2) / 8 / 0.25, 0, 1);
+                    double th = Math.Round((0.5 - 0.42 * q) * 50) / 50;
+                    double dd = w * (1.3 + 0.9 * q);
+                    var cd = o.Color; cd.A *= (float)(q < 0.55 ? 1 : 1 - (q - 0.55) / 0.45) * baseA;
+                    var disk = ShapeGeometry.For(new ShapeDef { Type = ShapeType.Ring, Thickness = Math.Max(0.02, th) });
+                    output.Add(new DrawItem { Object = o, Geometry = disk, Transform = Scaled(p.X, p.Y, 0, dd, dd), Color = cd, Phase = phase, Order = 0, Harmless = true });
+                    continue;
+                }
                 double d = 2.8 * p.Scale * w;
                 var c = o.Color; c.A *= (float)(p.Alpha * 0.8) * baseA;
                 output.Add(new DrawItem { Object = o, Geometry = ring, Transform = Scaled(p.X, p.Y, 0, d, d), Color = c, Phase = phase, Order = 0, Harmless = true });
@@ -275,17 +290,21 @@ public sealed class LevelEvaluator
             output.Add(new DrawItem
             {
                 Object = o, Geometry = shape, Color = shadow, Phase = phase, Order = 2, Harmless = true,
-                Transform = Scaled(sim.X + ImposterSim.ShadowOffset, sim.Y + ImposterSim.ShadowOffset, sim.DrawAngle, w * sim.StretchX, h * sim.StretchY),
+                Transform = Facing(Scaled(sim.X + ImposterSim.ShadowOffset, sim.Y + ImposterSim.ShadowOffset, sim.DrawAngle, w * sim.StretchX, h * sim.StretchY), face),
             });
         }
         output.Add(new DrawItem
         {
             Object = o, Geometry = shape, Color = color, Phase = phase, Order = 3, Harmless = !sim.Harmful,
-            Transform = Scaled(sim.X, sim.Y, sim.DrawAngle, w * sim.StretchX * sim.Grow, h * sim.StretchY * sim.Grow),
+            Transform = Facing(Scaled(sim.X, sim.Y, sim.DrawAngle, w * sim.StretchX * sim.Grow, h * sim.StretchY * sim.Grow), face),
             HasHitTransform = true,
-            HitTransform = Scaled(sim.X, sim.Y, sim.DrawAngle, w, h),
+            HitTransform = Facing(Scaled(sim.X, sim.Y, sim.DrawAngle, w, h), face),
         });
     }
+
+    /// <summary>Turns the unit shape by deg before m, so stretching stays along the heading.</summary>
+    private static Affine Facing(Affine m, double deg) =>
+        deg == 0 ? m : Affine.RotateTranslate(deg, 0, 0).Then(m);
 
     /// <summary>Unit square to world: scale to w x h, rotate by deg, move to (x, y).</summary>
     private static Affine Scaled(double x, double y, double deg, double w, double h)
@@ -341,6 +360,24 @@ public sealed class LevelEvaluator
     }
 
     // ----- scene events -----
+
+    /// <summary>Camera sway at song time t: rotation in degrees and offset in units (see spec, "sway").</summary>
+    public (double Rotation, double X, double Y) SwayAt(double t)
+    {
+        int i = LastEventAtOrBefore(swayEvents, t);
+        if (i < 0) return (0, 0, 0);
+        var e = swayEvents[i];
+        double rot = e.SwayRotation, x = e.SwayX, y = e.SwayY;
+        if (e.Duration > 0 && t < e.T + e.Duration)
+        {
+            // Blend the amplitudes in from the previous sway (none before the first).
+            double p = Ease.Apply(e.Ease, (t - e.T) / e.Duration);
+            double pr = 0, px = 0, py = 0;
+            if (i > 0) { var q = swayEvents[i - 1]; pr = q.SwayRotation; px = q.SwayX; py = q.SwayY; }
+            rot = pr + (rot - pr) * p; x = px + (x - px) * p; y = py + (y - py) * p;
+        }
+        return (rot * Math.Sin(2 * Math.PI * t / e.Period), x * Math.Sin(2 * Math.PI * t / e.PeriodX), y * Math.Sin(2 * Math.PI * t / e.PeriodY));
+    }
 
     public Rgba BackgroundAt(double t)
     {

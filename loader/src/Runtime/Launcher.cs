@@ -51,6 +51,7 @@ internal sealed class Launcher
     public void Update()
     {
         VerifySeek();
+        FadeMenuSources();
         float elapsed = Time.unscaledTime - stateTime;
         switch (Current)
         {
@@ -122,10 +123,82 @@ internal sealed class Launcher
     {
         var model = CustomSongRegistry.Create(loaded);
         CustomSession.Begin(loaded, model);
+        SilenceMenuAudio();
         CloseMenus();
         var list = new List<ModelStoryCheckpoint>();
         list.Add(model);
         MainGame.instance.StartPractice(list, hard ? ModelGameDifficultyEnum.HARD : ModelGameDifficultyEnum.NORMAL);
+    }
+
+    /// <summary>
+    /// Fades out the menu music and any song preview, as the playlist screen does before it starts a
+    /// song. Only what plays now is touched; the level's own music starts afterwards.
+    /// </summary>
+    private static void SilenceMenuAudio()
+    {
+        try
+        {
+            var musics = JukeBox.allDynamicMusics;
+            for (int i = (musics?.length ?? 0) - 1; i >= 0; i--) musics[i]?.fadeToDestroy(20);
+        }
+        catch (Exception e) { Plugin.Logger.LogWarning("fading the menu music: " + e.Message); }
+        try
+        {
+            var list = UIBase.manager.actorList;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var practice = list[i]?.TryCast<UI_Practice>();
+                if (practice != null && !practice.destroyed) practice.StopPreview();
+            }
+        }
+        catch (Exception e) { Plugin.Logger.LogWarning("stopping the preview: " + e.Message); }
+        try
+        {
+            var sounds = JukeBox.allSounds;
+            for (int i = (sounds?.length ?? 0) - 1; i >= 0; i--)
+            {
+                var sfx = sounds[i];
+                var view = sfx?.sfxView;
+                if (view != null && view.isPlaying && (view.looping || view.bindToMusicVolume)) JukeBox.fadeOutPreview(sfx);
+            }
+        }
+        catch (Exception e) { Plugin.Logger.LogWarning("fading menu sounds: " + e.Message); }
+        try
+        {
+            // Menu loops belong to the menu screens' own actors, so also fade every music-like sound
+            // that is playing now (looping, or longer than a few seconds). Short UI sounds keep playing.
+            fadingSources.Clear();
+            foreach (var src in UnityEngine.Object.FindObjectsOfType<AudioSource>())
+            {
+                if (src == null || !src.isPlaying) continue;
+                var clip = src.clip;
+                if (src.loop || (clip != null && clip.length > 8f)) fadingSources.Add((src, src.volume));
+            }
+            fadeStarted = Time.unscaledTime;
+        }
+        catch (Exception e) { Plugin.Logger.LogWarning("fading menu audio sources: " + e.Message); }
+    }
+
+    private static readonly System.Collections.Generic.List<(AudioSource src, float volume)> fadingSources = new();
+    private static float fadeStarted;
+    private const float MenuFadeSeconds = 0.4f;
+
+    /// <summary>Fades the menu sounds picked by <see cref="SilenceMenuAudio"/>, then stops them.</summary>
+    private static void FadeMenuSources()
+    {
+        if (fadingSources.Count == 0) return;
+        float p = Mathf.Clamp01((Time.unscaledTime - fadeStarted) / MenuFadeSeconds);
+        for (int i = fadingSources.Count - 1; i >= 0; i--)
+        {
+            var (src, vol) = fadingSources[i];
+            try
+            {
+                if (src == null) { fadingSources.RemoveAt(i); continue; }
+                src.volume = vol * (1 - p);
+                if (p >= 1) { src.Stop(); src.volume = vol; fadingSources.RemoveAt(i); }
+            }
+            catch { fadingSources.RemoveAt(i); }
+        }
     }
 
     /// <summary>Removes the menu screens the practice flow would normally close itself.</summary>

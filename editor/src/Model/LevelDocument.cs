@@ -52,6 +52,8 @@ public sealed class ImposterSpec
     public double StretchSpeed = 2000;
     public double StretchMax = 0.4;
     public bool Effects = true;
+    /// <summary>"ring" or "disk".</summary>
+    public string DashPulse = "ring";
 
     public ImposterSpec Clone() => (ImposterSpec)MemberwiseClone();
 }
@@ -101,7 +103,9 @@ public sealed class EditObject
 
 public sealed class EditEvent
 {
-    public static readonly string[] Types = { "shake", "flash", "background" };
+    public static readonly string[] Types = { "shake", "flash", "background", "sway", "sound" };
+    /// <summary>Game sounds a "sound" event can play (see the level format).</summary>
+    public static readonly string[] Sounds = { "playerDeath", "playerHit", "playerRespawn", "explosion" };
 
     public double T;
     public string Type = "flash";
@@ -110,6 +114,9 @@ public sealed class EditEvent
     public double Opacity = 0.7;
     public string Color = "#ffffff";
     public string Ease = "linear";
+    public double SwayRotation = 1, SwayX = 5, SwayY = 0, Period = 2150, PeriodX = 2330, PeriodY = 2600;
+    public string Sound = "playerDeath";
+    public double Volume = 1;
 
     public EditEvent Clone() => (EditEvent)MemberwiseClone();
 }
@@ -268,6 +275,7 @@ public sealed class LevelDocument
             Num(w, "stretchSpeed", m.StretchSpeed);
             Num(w, "stretchMax", m.StretchMax);
             if (!m.Effects) w.WriteBoolean("effects", false);
+            if (m.DashPulse == "disk") w.WriteString("dashPulse", "disk");
             w.WriteEndObject();
         }
         if (o.PivotX != 0 || o.PivotY != 0)
@@ -307,6 +315,12 @@ public sealed class LevelDocument
             case "shake": Num(w, "intensity", e.Intensity); break;
             case "flash": w.WriteString("color", e.Color); Num(w, "opacity", e.Opacity); break;
             case "background": w.WriteString("color", e.Color); if (e.Ease != "linear") w.WriteString("ease", e.Ease); break;
+            case "sway":
+                Num(w, "rotation", e.SwayRotation); Num(w, "x", e.SwayX); Num(w, "y", e.SwayY);
+                Num(w, "period", e.Period); Num(w, "periodX", e.PeriodX); Num(w, "periodY", e.PeriodY);
+                if (e.Ease != "linear") w.WriteString("ease", e.Ease);
+                break;
+            case "sound": w.WriteString("sound", e.Sound ?? ""); Num(w, "volume", e.Volume); break;
         }
         w.WriteEndObject();
     }
@@ -402,6 +416,7 @@ public sealed class LevelDocument
                     m.StretchSpeed = D(im["stretchSpeed"], m.StretchSpeed);
                     m.StretchMax = D(im["stretchMax"], m.StretchMax);
                     m.Effects = im["effects"] is JsonValue ev ? ev.GetValue<bool>() : true;
+                    m.DashPulse = (string)im["dashPulse"] == "disk" ? "disk" : "ring";
                     eo.Imposter = m;
                 }
                 if (o["shape"] is JsonObject sh)
@@ -447,6 +462,14 @@ public sealed class LevelDocument
                     Opacity = D(e["opacity"], 0.7),
                     Color = (string)e["color"] ?? "#ffffff",
                     Ease = (string)e["ease"] ?? "linear",
+                    SwayRotation = D(e["rotation"], 0),
+                    SwayX = D(e["x"], 0),
+                    SwayY = D(e["y"], 0),
+                    Period = D(e["period"], 2000),
+                    PeriodX = D(e["periodX"], D(e["period"], 2000) * 1.08),
+                    PeriodY = D(e["periodY"], D(e["period"], 2000) * 1.21),
+                    Sound = (string)e["sound"] ?? "playerDeath",
+                    Volume = D(e["volume"], 1),
                 });
             }
         }

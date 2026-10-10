@@ -154,13 +154,17 @@ public partial class CanvasView : Control
         triPoints.Clear();
         triColors.Clear();
         triIndices.Clear();
+        // While the song plays, show the level's camera sway like the game does (editing stays steady).
+        var sway = S.Playing ? S.Evaluator.SwayAt(S.Playhead) : (0, 0, 0);
+        var cam = Affine.RotateTranslate(sway.Item1, sway.Item2, sway.Item3);
         foreach (var it in items)
         {
             var c = new Color(it.Color.R, it.Color.G, it.Color.B, it.Color.A);
             int b = triPoints.Count;
+            var m = sway.Item1 == 0 && sway.Item2 == 0 && sway.Item3 == 0 ? it.Transform : it.Transform.Then(cam);
             foreach (var u in it.Geometry.Vertices)
             {
-                triPoints.Add(GameToView(it.Transform.Apply(u)));
+                triPoints.Add(GameToView(m.Apply(u)));
                 triColors.Add(c);
             }
             foreach (var i in it.Geometry.Indices) triIndices.Add(b + i);

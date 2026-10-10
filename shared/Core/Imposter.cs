@@ -38,6 +38,9 @@ public sealed class PlayerList : IPlayerSource
 
 public enum ImposterMode { Straight, Chase }
 
+/// <summary>How a dash is marked: a thin ring that spreads out, or a disk that hollows into a ring.</summary>
+public enum DashPulse { Ring, Disk }
+
 /// <summary>
 /// An object that moves like a player: it cruises, dashes and slows back down, stretches with its
 /// speed and leaves a trail of copies of itself. See spec/level-format.md, "Imposters".
@@ -67,6 +70,7 @@ public sealed class ImposterBehavior
     public double StretchMax = 0.4;
     /// <summary>Trail, dash bursts, dash rings and the drop shadow.</summary>
     public bool Effects = true;
+    public DashPulse Pulse = DashPulse.Ring;
 
     public static ImposterBehavior Parse(JsonElement e)
     {
@@ -86,6 +90,7 @@ public sealed class ImposterBehavior
         b.StretchSpeed = Math.Max(1, Num(e, "stretchSpeed", b.StretchSpeed));
         b.StretchMax = Math.Clamp(Num(e, "stretchMax", b.StretchMax), 0, 2);
         b.Effects = Bool(e, "effects", true);
+        if (Str(e, "dashPulse") == "disk") b.Pulse = DashPulse.Disk;
         return b;
     }
 
@@ -150,8 +155,10 @@ public sealed class ImposterSim
         {
             // Warning: sit at the spawn point and grow in; chasers already face the nearest player.
             steps = -1;
-            X = obj.X.Evaluate(localT);
-            Y = obj.Y.Evaluate(localT);
+            var a = Anchor(players);
+            X = a.X + obj.X.Evaluate(localT);
+            Y = a.Y + obj.Y.Evaluate(localT);
+            KeepOnScreen(ref X, ref Y);
             double h = b.Angle;
             if (b.Mode == ImposterMode.Chase && Nearest(players, X, Y, out var px, out var py)) h = Deg(Math.Atan2(py - Y, px - X));
             DrawAngle = h;
@@ -180,8 +187,10 @@ public sealed class ImposterSim
     private void Reset(IPlayerSource players)
     {
         steps = 0;
-        x = obj.X.Evaluate(obj.Warn);
-        y = obj.Y.Evaluate(obj.Warn);
+        var anchor = Anchor(players);
+        x = anchor.X + obj.X.Evaluate(obj.Warn);
+        y = anchor.Y + obj.Y.Evaluate(obj.Warn);
+        KeepOnScreen(ref x, ref y);
         heading = b.Angle;
         if (b.Mode == ImposterMode.Chase && Nearest(players, x, y, out var px, out var py)) heading = Deg(Math.Atan2(py - y, px - x));
         drawAngle = heading;
@@ -333,6 +342,28 @@ public sealed class ImposterSim
                 });
             }
         }
+    }
+
+    /// <summary>
+    /// An imposter whose parent is a player spawns relative to that player (its x/y tracks are the
+    /// offset). Without such a player the offset is taken from the centre of the screen.
+    /// </summary>
+    private Vec2 Anchor(IPlayerSource players)
+    {
+        if (obj.PlayerAnchor <= 0 || players == null) return new Vec2(0, 0);
+        for (int i = 0; i < players.Count; i++)
+        {
+            var p = players.Get(i);
+            if (p.Number == obj.PlayerAnchor && p.Alive) return p.Position;
+        }
+        return new Vec2(0, 0);
+    }
+
+    private void KeepOnScreen(ref double px, ref double py)
+    {
+        if (obj.PlayerAnchor <= 0 || !b.Bounds) return;
+        px = Math.Clamp(px, -BoundsX, BoundsX);
+        py = Math.Clamp(py, -BoundsY, BoundsY);
     }
 
     private void SetVelocity(double speed, double angleDeg)

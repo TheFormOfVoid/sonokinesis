@@ -21,9 +21,14 @@ public class Plugin : BasePlugin
         System.IO.Directory.CreateDirectory(DataDir);
 
         Settings.Bind(Config);
-        new HarmonyLib.Harmony(Guid).PatchAll(typeof(Plugin).Assembly);
+        var harmony = new HarmonyLib.Harmony(Guid);
+        harmony.PatchAll(typeof(Plugin).Assembly);
         AddComponent<Runtime.BeatformRuntime>();
-        if (Settings.DevConsole) AddComponent<Dev.DevConsole>();
+        if (Settings.DevConsole)
+        {
+            AddComponent<Dev.DevConsole>();
+            Dev.SoundLog.Apply(harmony);
+        }
         Runtime.EditorBridge.Status("ready", "loader started");
         Log.LogInfo($"{Name} {Version} loaded");
     }

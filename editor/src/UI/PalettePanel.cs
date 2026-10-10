@@ -55,6 +55,8 @@ public partial class PalettePanel : PanelContainer
         box.AddChild(Item("scene:shake", "≋  Camera shake", "Shakes the camera."));
         box.AddChild(Item("scene:flash", "☼  Screen flash", "A full-screen flash that fades out."));
         box.AddChild(Item("scene:background", "◐  Background color", "Fades the background to a new color."));
+        box.AddChild(Item("scene:sway", "∿  Camera sway", "The whole scene sways gently from here on."));
+        box.AddChild(Item("scene:sound", "♪  Game sound", "Plays one of the game's own sounds, like a player's death."));
     }
 
     private Control Item(string id, string label, string tip)
@@ -99,6 +101,12 @@ public partial class PalettePanel : PanelContainer
                     return;
                 case "background":
                     AddEvent(new EditEvent { T = t, Type = "background", Duration = beat * 4, Color = "#1a0a24", Ease = "inOutSine" });
+                    return;
+                case "sway":
+                    AddEvent(new EditEvent { T = t, Type = "sway", Duration = beat * 2, Ease = "inOutSine" });
+                    return;
+                case "sound":
+                    AddEvent(new EditEvent { T = t, Type = "sound", Duration = 0, Sound = "playerDeath" });
                     return;
             }
         }

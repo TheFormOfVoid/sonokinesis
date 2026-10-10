@@ -269,7 +269,10 @@ stand-in player 1.
 
 An object with an `imposter` block moves like a player instead of following its `x`/`y` tracks. Its
 tracks still give its spawn point (`x`, `y` at the end of the warning), its size (`w`, `h`) and its
-`opacity`; `rot`, `pivot` and `parent` are ignored. Other objects can use an imposter as their
+`opacity`; `rot` and `pivot` are ignored. A `parent` that is a player makes the spawn point relative
+to that player: during the warning the imposter keeps that offset from the player (kept inside the
+screen when `bounds` is on), and it starts from there; without that player the offset counts from
+the centre of the screen. Other parents are ignored. Other objects can use an imposter as their
 `parent`; they then follow its position only.
 
 ```json
@@ -291,6 +294,7 @@ tracks still give its spawn point (`x`, `y` at the end of the warning), its size
 | `bounds` | `true` for chase | Keeps it inside the screen while hunting. |
 | `stretchSpeed`, `stretchMax` | `2000`, `0.4` | How speed stretches it. |
 | `effects` | `true` | Trail, dash bursts, dash rings and drop shadow. |
+| `dashPulse` | `"ring"` | How a dash is marked: `"ring"` (below) or `"disk"`: a disk that grows from `1.3·w` to `2.2·w` over 250 ms while its `ring` thickness falls from 0.5 to 0.08 (rounded to 0.02), fading out over its last 45 %. |
 
 **Warning phase.** It sits at its spawn point, scaled by `outBack(t / warn)`, drawn in warning style.
 A chaser faces the nearest living player.
@@ -320,6 +324,9 @@ Between steps it is drawn at the last step's position plus velocity times the ti
 `h·max(0.25, 1 − 0.6·s)`. It hurts like an object of size `w × h` at that position and angle
 (unstretched) during its active phase, except while leaving. Going back in time (a seek or a rewind)
 restarts the run; chasers then follow where the players are now.
+
+Polygons, stars and spike balls point their first vertex (unit-space "up") along the heading, so a
+triangle leads with its tip; the stretch stays along the heading.
 
 **Effects** (decoration, the object's colour, never hurting):
 
@@ -363,6 +370,8 @@ Events change the whole scene at a song time.
 | `shake` | `duration`, `intensity` (units) | Camera shake. Uses the game's camera kick so players and hazards move together. |
 | `flash` | `duration`, `color`, `opacity` | Full screen color over the hazards, fading linearly from `opacity` to 0. |
 | `background` | `duration`, `color`, `ease` | Background color transition from the current color, starting at `t`. |
+| `sway` *(v2)* | `rotation` (degrees), `x`, `y` (units), `period`, `periodX`, `periodY` (ms; defaults `2000`, `period·1.08`, `period·1.21`), `duration`, `ease` | From `t` until the next sway, the whole scene (players included) turns by `rotation·sin(2π·T/period)` around the screen centre and moves by `x·sin(2π·T/periodX)`, `y·sin(2π·T/periodY)`, with `T` the song time. Over `duration` the amplitudes blend from the previous sway's (or 0). |
+| `sound` *(v2)* | `sound`, `volume` (0–1) | Plays one of the game's own sounds when playback passes `t` (not after seeks or rewinds): `playerDeath`, `playerHit`, `playerRespawn`, `explosion`. Tools without the game stay silent. |
 
 ## Compatibility
 

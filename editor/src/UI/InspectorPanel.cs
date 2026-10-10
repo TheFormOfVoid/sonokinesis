@@ -299,6 +299,8 @@ public partial class InspectorPanel : PanelContainer
         Row("Stay on screen", Check("bounce off the edges", () => m.Bounds, v => m.Bounds = v, "Stay on screen"));
         Row("Stretch", Num(() => m.StretchMax, v => m.StretchMax = Math.Clamp(v, 0, 2), "Stretch", 0.05, 0, 2), "How much speed stretches it.");
         Row("Effects", Check("trail, dash rings, shadow", () => m.Effects, v => m.Effects = v, "Imposter effects"));
+        Row("Dash mark", Options(new[] { "ring", "disk" }, () => m.DashPulse, v => m.DashPulse = v, "Dash mark",
+            new[] { "Spreading ring", "Disk that hollows" }));
         box.AddChild(UiTheme.Small("Times count from the end of its warning. Drag the dashed \"player\" square on the stage to preview chasing."));
     }
 
@@ -392,7 +394,8 @@ public partial class InspectorPanel : PanelContainer
     private void BuildEvent(EditEvent e)
     {
         box.AddChild(UiTheme.Heading("Scene event", 12, UiTheme.Pink));
-        Row("Type", Options(EditEvent.Types, () => e.Type, v => e.Type = v, "Event type", new[] { "Camera shake", "Screen flash", "Background color" }));
+        Row("Type", Options(EditEvent.Types, () => e.Type, v => e.Type = v, "Event type",
+            new[] { "Camera shake", "Screen flash", "Background color", "Camera sway", "Game sound" }));
         Row("Time", Num(() => e.T, v => e.T = Math.Max(0, v), "Event time", 1, 0, 10000000, " ms"));
         Row("Duration", Num(() => e.Duration, v => e.Duration = Math.Max(0, v), "Event duration", 1, 0, 100000, " ms"));
         switch (e.Type)
@@ -407,6 +410,22 @@ public partial class InspectorPanel : PanelContainer
             case "background":
                 Row("Color", ColorField(() => e.Color, v => e.Color = v, "Background color", "#000000"));
                 Row("Ease", Options(Eases, () => e.Ease, v => e.Ease = v, "Ease"));
+                break;
+            case "sway":
+                box.AddChild(UiTheme.Small("From this time on the whole scene sways gently until the next sway event. Duration blends from the previous sway. 0 everywhere turns it off."));
+                Row("Rotation", Num(() => e.SwayRotation, v => e.SwayRotation = v, "Sway rotation", 0.05, -45, 45, "°"));
+                Row("Sideways", Num(() => e.SwayX, v => e.SwayX = v, "Sway x", 0.5, -200, 200));
+                Row("Up/down", Num(() => e.SwayY, v => e.SwayY = v, "Sway y", 0.5, -200, 200));
+                Row("Period", Num(() => e.Period, v => e.Period = Math.Max(100, v), "Sway period", 10, 100, 100000, " ms"), "Time for one full swing of the rotation.");
+                Row("Period x", Num(() => e.PeriodX, v => e.PeriodX = Math.Max(100, v), "Sway period x", 10, 100, 100000, " ms"));
+                Row("Period y", Num(() => e.PeriodY, v => e.PeriodY = Math.Max(100, v), "Sway period y", 10, 100, 100000, " ms"));
+                Row("Ease", Options(Eases, () => e.Ease, v => e.Ease = v, "Ease"));
+                break;
+            case "sound":
+                box.AddChild(UiTheme.Small("Plays one of the game's own sounds in the game. The editor cannot play them."));
+                Row("Sound", Options(EditEvent.Sounds, () => e.Sound, v => e.Sound = v, "Sound",
+                    new[] { "Player death", "Player hit", "Player respawn", "Explosion" }));
+                Row("Volume", Num(() => e.Volume, v => e.Volume = Math.Clamp(v, 0, 1), "Sound volume", 0.05, 0, 1));
                 break;
         }
         Buttons(Btn("Move to playhead", () => S.Edit("Move event", () => e.T = S.Playhead)), Btn("Delete", () => App.Instance.DeleteSelection()));

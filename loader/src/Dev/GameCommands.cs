@@ -191,6 +191,34 @@ public static class GameCommands
             return "sampling clock";
         };
         DevConsole.Commands["clocklog"] = _ => string.Join("\n", clockSamples);
+        DevConsole.Commands["music"] = _ =>
+        {
+            // Everything the jukebox is playing: dynamic music (songs, menu themes) and sounds.
+            var sb = new StringBuilder();
+            var musics = JukeBox.allDynamicMusics;
+            sb.AppendLine($"dynamic musics n={musics?.length} current={JukeBox.currentMusicComponent?.sfxViewDynamic?.debugSoundName}");
+            for (int i = 0; musics != null && i < musics.length; i++)
+            {
+                var d = musics[i]?.sfxViewDynamic;
+                sb.AppendLine($"  [{i}] {d?.debugSoundName} clip={d?.modelSong?.name} playing={d?.isPlaying} vol={d?.volume:0.##} pos={d?.position:0}");
+            }
+            var sounds = JukeBox.allSounds;
+            sb.AppendLine($"sounds n={sounds?.length}");
+            for (int i = 0; sounds != null && i < sounds.length; i++)
+            {
+                var v = sounds[i]?.sfxView;
+                if (v != null && v.isPlaying) sb.AppendLine($"  [{i}] {v.debugSoundName} loop={v.looping} musicVol={v.bindToMusicVolume} pos={v.position:0}");
+            }
+            return sb.ToString();
+        };
+        DevConsole.Commands["audiosources"] = _ =>
+        {
+            var sb = new StringBuilder();
+            foreach (var src in UnityEngine.Object.FindObjectsOfType<UnityEngine.AudioSource>())
+                if (src != null && src.isPlaying)
+                    sb.AppendLine($"{src.gameObject.name}: clip={src.clip?.name} len={src.clip?.length:0.0} loop={src.loop} vol={src.volume:0.00} t={src.time:0.0}");
+            return sb.Length == 0 ? "nothing playing" : sb.ToString();
+        };
         DevConsole.Commands["frames"] = _ =>
         {
             if (frameSamples.Count == 0) return "no samples";

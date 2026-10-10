@@ -118,7 +118,7 @@ public sealed class LevelObject
     public double ActiveEnd => End - Outro;
 }
 
-public enum EventType { Shake, Flash, Background }
+public enum EventType { Shake, Flash, Background, Sway, Sound }
 
 public sealed class LevelEvent
 {
@@ -129,6 +129,11 @@ public sealed class LevelEvent
     public Rgba Color;
     public double Opacity = 1;
     public Ease.Kind Ease;
+    /// <summary>Sway: amplitudes (degrees, units) and periods (ms).</summary>
+    public double SwayRotation, SwayX, SwayY, Period = 2000, PeriodX = 2000, PeriodY = 2000;
+    /// <summary>Sound: the name of a game sound (see spec) and its volume 0..1.</summary>
+    public string Sound;
+    public double Volume = 1;
 }
 
 public sealed class LevelMeta
@@ -228,12 +233,22 @@ public sealed class LevelData
                     Opacity = Math.Clamp(Num(e, "opacity", 1), 0, 1),
                     Color = Rgba.Parse(Str(e, "color"), new Rgba(1, 1, 1)),
                     Ease = Core.Ease.Parse(Str(e, "ease")),
+                    SwayRotation = Num(e, "rotation", 0),
+                    SwayX = Num(e, "x", 0),
+                    SwayY = Num(e, "y", 0),
+                    Sound = Str(e, "sound"),
+                    Volume = Math.Clamp(Num(e, "volume", 1), 0, 1),
                 };
+                ev.Period = Math.Max(100, Num(e, "period", 2000));
+                ev.PeriodX = Math.Max(100, Num(e, "periodX", ev.Period * 1.08));
+                ev.PeriodY = Math.Max(100, Num(e, "periodY", ev.Period * 1.21));
                 switch (type)
                 {
                     case "shake": ev.Type = EventType.Shake; break;
                     case "flash": ev.Type = EventType.Flash; break;
                     case "background": ev.Type = EventType.Background; break;
+                    case "sway": ev.Type = EventType.Sway; break;
+                    case "sound": if (string.IsNullOrEmpty(ev.Sound)) continue; ev.Type = EventType.Sound; break;
                     default: continue;
                 }
                 level.Events.Add(ev);

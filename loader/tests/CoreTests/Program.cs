@@ -232,6 +232,40 @@ internal static class Program
         Near(rm.Apply(0, 0).X, rs.X + 30, "child follows the imposter (x)", 1e-6);
         Near(rm.Apply(0, 0).Y, rs.Y, "child follows the imposter (y)", 1e-6);
         Check(rs.Y > 100, "angle 90 moves down");
+
+        // A triangle imposter points its tip where it is going.
+        var tri = Mini("{\"id\":\"t\",\"shape\":{\"type\":\"polygon\",\"sides\":3},\"start\":0,\"end\":5000,"
+            + "\"imposter\":{\"mode\":\"straight\",\"angle\":180,\"speed\":100,\"dashEvery\":100000,\"effects\":false},\"tracks\":{\"w\":[[0,20]],\"h\":[[0,20]]}}");
+        var tev = new LevelEvaluator(tri);
+        tev.Collect(2000, items);
+        var tm = items[items.Count - 1].HitTransform;
+        var tip = tm.Apply(0, -0.5); var tc = tm.Apply(0, 0);
+        Check(tip.X < tc.X - 5 && Math.Abs(tip.Y - tc.Y) < 1e-6, "triangle tip leads (heading left)");
+
+        // An imposter whose parent is a player spawns next to that player.
+        var near = Mini("{\"id\":\"n\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"warn\":500,\"end\":5000,\"parent\":\"@player\","
+            + "\"imposter\":{\"speed\":0,\"dashSpeed\":0,\"dashEvery\":100000},\"tracks\":{\"x\":[[0,100]],\"y\":[[0,-50]]}}");
+        var nev = new LevelEvaluator(near);
+        var np = new PlayerList();
+        np.Players.Add(new PlayerInfo { Number = 1, Position = new Vec2(200, 100), Alive = true });
+        nev.Players = np;
+        var ns = nev.SimAt(near.Objects[0], 250);
+        Near(ns.X, 300, "player-relative spawn x during warning"); Near(ns.Y, 50, "player-relative spawn y during warning");
+        np.Players[0] = new PlayerInfo { Number = 1, Position = new Vec2(-200, 0), Alive = true };
+        ns = nev.SimAt(near.Objects[0], 1000);
+        Near(ns.X, -100, "starts from the player's spot at activation", 1e-6);
+
+        // Sway and sound events.
+        var ev2 = LevelData.Parse("{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"events\":["
+            + "{\"t\":0,\"type\":\"sway\",\"rotation\":1,\"x\":5,\"period\":2000,\"periodX\":2400},"
+            + "{\"t\":4000,\"type\":\"sway\",\"rotation\":0,\"duration\":1000},"
+            + "{\"t\":100,\"type\":\"sound\",\"sound\":\"playerDeath\",\"volume\":0.5}]}");
+        var sev = new LevelEvaluator(ev2);
+        Near(sev.SwayAt(500).Rotation, 1, "sway rotation peaks a quarter period in", 1e-9);
+        Near(sev.SwayAt(600).X, 5 * Math.Sin(2 * Math.PI * 600 / 2400), "sway x uses its own period", 1e-9);
+        Near(sev.SwayAt(4500).Rotation, 0.5 * Math.Sin(2 * Math.PI * 4500 / 2000), "a later sway blends in over its duration", 1e-9);
+        Near(sev.SwayAt(6500).Rotation, 0, "sway can be turned off", 1e-9);
+        Check(ev2.Events.Exists(e => e.Type == EventType.Sound && e.Sound == "playerDeath" && Math.Abs(e.Volume - 0.5) < 1e-9), "sound event parses");
     }
 
     private static string F(double v) => v.ToString("0.######", CultureInfo.InvariantCulture);
