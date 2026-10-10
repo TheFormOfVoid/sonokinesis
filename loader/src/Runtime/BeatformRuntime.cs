@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Beatform.Core;
 using Beatform.Loader.UI;
+using Il2CppInterop.Runtime.Attributes;
 using UnityEngine;
 
 namespace Beatform.Loader.Runtime;
@@ -27,8 +28,8 @@ public class BeatformRuntime : MonoBehaviour
     private readonly System.Random shakeRandom = new(1234);
 
     internal static BeatformRuntime Instance { get; private set; }
-    internal Launcher Launcher => launcher;
-    internal LevelMenu Menu => menu;
+    [HideFromIl2Cpp] internal Launcher Launcher => launcher;
+    [HideFromIl2Cpp] internal LevelMenu Menu => menu;
 
     private void Awake()
     {
@@ -114,6 +115,7 @@ public class BeatformRuntime : MonoBehaviour
     }
 
     /// <summary>Shake events fire when playback crosses their start; jumps (rewinds, seeks) skip them.</summary>
+    [HideFromIl2Cpp]
     private void RunShakes(LevelData data, double t)
     {
         if (!double.IsNaN(lastSongTime) && t > lastSongTime && t - lastSongTime < 250)

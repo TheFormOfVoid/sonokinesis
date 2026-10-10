@@ -24,3 +24,6 @@ editor/.godot/
 editor/bin/
 editor/obj/
 research/editor-test/
+build/cache/
+dist/
+research/dev-bepinex-backup/
