@@ -109,7 +109,24 @@ public partial class App : Control
         bar.AddChild(logo);
         bar.AddChild(Spacer(8));
         bar.AddChild(Btn("New", NewLevel, "New level from a song (Ctrl+N)"));
-        bar.AddChild(Btn("Open", OpenLevel, "Open a level folder (Ctrl+O)"));
+        var open = new MenuButton { Text = "Open ▾", TooltipText = "Open a level (Ctrl+O) or a recent one", Flat = false };
+        open.AboutToPopup += () =>
+        {
+            var pm = open.GetPopup();
+            pm.Clear();
+            pm.AddItem("Open level…   Ctrl+O", 0);
+            var recent = EditorSettings.Recent.Where(r => File.Exists(Path.Combine(r, "level.json"))).Take(10).ToList();
+            if (recent.Count > 0) pm.AddSeparator("Recent");
+            for (int i = 0; i < recent.Count; i++) { pm.AddItem(recent[i], 100 + i); }
+        };
+        open.GetPopup().IdPressed += id =>
+        {
+            if (id == 0) { OpenLevel(); return; }
+            var recent = EditorSettings.Recent.Where(r => File.Exists(Path.Combine(r, "level.json"))).Take(10).ToList();
+            int i = (int)id - 100;
+            if (i >= 0 && i < recent.Count) { var folder = recent[i]; ConfirmDiscard(() => OpenFolder(folder)); }
+        };
+        bar.AddChild(open);
         bar.AddChild(Btn("Save", () => Save(), "Save (Ctrl+S)"));
         bar.AddChild(Btn("Level…", ShowLevelSettings, "Title, song, BPM, colors"));
         var export = new MenuButton { Text = "Share ▾", TooltipText = "Export or install the level", Flat = false };
@@ -216,6 +233,49 @@ public partial class App : Control
         if (statusUntil > 0 && Time.GetTicksMsec() / 1000.0 > statusUntil) { statusLabel.Text = ""; statusUntil = 0; }
         GameBridge.Poll(this);
         autotest?.Step(this);
+        AutosaveTick();
+    }
+
+    private const string AutosaveName = "level.autosave.json";
+    private double nextAutosave = 120;
+
+    /// <summary>Every two minutes, unsaved changes are written next to the level (never over it).</summary>
+    private void AutosaveTick()
+    {
+        double now = Time.GetTicksMsec() / 1000.0;
+        if (now < nextAutosave) return;
+        nextAutosave = now + 120;
+        if (!S.Dirty || S.Doc.FolderPath == null || autotest != null) return;
+        try
+        {
+            File.WriteAllText(Path.Combine(S.Doc.FolderPath, AutosaveName), S.Doc.ToJson());
+            Status("Autosaved unsaved changes (" + AutosaveName + ").");
+        }
+        catch { }
+    }
+
+    /// <summary>After opening, offers the autosave when it is newer than the saved level.</summary>
+    private void OfferAutosave(string folder)
+    {
+        var auto = Path.Combine(folder, AutosaveName);
+        var main = Path.Combine(folder, "level.json");
+        if (!File.Exists(auto) || File.GetLastWriteTimeUtc(auto) <= File.GetLastWriteTimeUtc(main)) return;
+        var dlg = new ConfirmationDialog { Title = "Unsaved work found", DialogText = "This level has an autosave newer than its last save (the editor may have closed unexpectedly). Restore it?", OkButtonText = "Restore" };
+        dlg.Confirmed += () =>
+        {
+            try
+            {
+                var doc = LevelDocument.FromJson(File.ReadAllText(auto), folder);
+                S.Open(doc);
+                S.Touch();
+                Status("Restored the autosave. Save to keep it.");
+            }
+            catch (Exception e) { Status("Could not restore the autosave: " + e.Message, true); }
+            dlg.QueueFree();
+        };
+        dlg.Canceled += () => { try { File.Delete(auto); } catch { } dlg.QueueFree(); };
+        AddChild(dlg);
+        dlg.PopupCentered();
     }
 
     public void PlayheadMoved()
@@ -525,6 +585,19 @@ public partial class App : Control
         fd.PopupCentered(new Vector2I(900, 600));
     });
 
+    /// <summary>Creates a level in an exact folder (used by scripted tests).</summary>
+    public void CreateLevelAt(string songPath, string folder)
+    {
+        Directory.CreateDirectory(folder);
+        var ext = Path.GetExtension(songPath).ToLowerInvariant();
+        File.Copy(songPath, Path.Combine(folder, "song" + ext), true);
+        var doc = new LevelDocument { FolderPath = folder, Title = Path.GetFileName(folder), Audio = "song" + ext };
+        doc.Save();
+        S.Open(doc);
+    }
+
+    public void TestInGameNow() => TestInGame();
+
     private void CreateLevelFromSong(string songPath)
     {
         var name = Path.GetFileNameWithoutExtension(songPath);
@@ -568,6 +641,7 @@ public partial class App : Control
             S.Open(doc);
             Timeline.ShowRange(0, Math.Max(20000, doc.ContentEnd));
             Status($"Opened {folder}");
+            if (autotest == null) OfferAutosave(folder);
         }
         catch (Exception e)
         {
@@ -587,6 +661,7 @@ public partial class App : Control
         {
             S.Doc.Save();
             S.MarkSaved();
+            try { File.Delete(Path.Combine(S.Doc.FolderPath, AutosaveName)); } catch { }
             EditorSettings.AddRecent(S.Doc.FolderPath);
             Status("Saved " + Path.Combine(S.Doc.FolderPath, "level.json"));
             return true;

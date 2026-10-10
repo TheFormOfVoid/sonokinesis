@@ -60,6 +60,16 @@ public sealed class AutoTest
                     wait = 2;
                     break;
                 case "settings": app.ShowLevelSettings(); wait = 5; break;
+                case "new":
+                {
+                    // new <song file> | <level folder>
+                    var p2 = arg.Split('|');
+                    app.CreateLevelAt(p2[0].Trim(), p2[1].Trim());
+                    wait = 20;
+                    break;
+                }
+                case "bpm": s.Edit("BPM", () => s.Doc.Bpm = double.Parse(arg, System.Globalization.CultureInfo.InvariantCulture)); break;
+                case "testingame": app.TestInGameNow(); wait = 5; break;
                 case "save": app.Save(); break;
                 case "undo": s.Undo(); wait = 2; break;
                 case "quit": app.GetTree().Quit(); break;
