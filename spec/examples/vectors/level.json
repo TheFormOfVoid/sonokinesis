@@ -1,0 +1,84 @@
+{
+  "format": "beatform.level",
+  "formatVersion": 1,
+  "meta": {
+    "id": "spec-vectors",
+    "title": "Spec vectors",
+    "artist": "none",
+    "author": "Beatform",
+    "audio": "silence.wav",
+    "bpm": 120,
+    "lengthMs": 8000
+  },
+  "theme": { "background": "#101018", "hazard": "#ff2a6d", "flash": "#ffffff" },
+  "settings": { "hitboxScale": 0.9 },
+  "checkpoints": [0, 4000],
+  "objects": [
+    {
+      "id": "rect-move",
+      "shape": { "type": "rect" },
+      "start": 0, "warn": 500, "end": 3000, "outro": 400,
+      "tracks": {
+        "x": [[0, -400], [500, -400], [2000, 400, "inOutCubic"]],
+        "y": [[0, 0]],
+        "w": [[0, 120]], "h": [[0, 60]],
+        "rot": [[0, 0], [2600, 90, "outBack"]]
+      }
+    },
+    {
+      "id": "spinner",
+      "shape": { "type": "circle" },
+      "start": 1000, "warn": 0, "end": 6000,
+      "hitbox": false,
+      "tracks": { "x": [[0, 0]], "y": [[0, 0]], "rot": [[0, 0], [5000, 720]], "w": [[0, 30]], "h": [[0, 30]] }
+    },
+    {
+      "id": "arm",
+      "parent": "spinner",
+      "shape": { "type": "rect" },
+      "pivot": [-0.5, 0],
+      "start": 1500, "warn": 300, "end": 5500, "outro": 300,
+      "color": "#ffd200",
+      "layer": 2,
+      "tracks": { "x": [[0, 20]], "w": [[0, 0], [600, 300, "outQuad"]], "h": [[0, 24]] }
+    },
+    {
+      "id": "ring",
+      "shape": { "type": "ring", "thickness": 0.1 },
+      "start": 2000, "warn": 400, "end": 4000, "outro": 200,
+      "tracks": { "x": [[0, 250]], "y": [[0, -100]], "w": [[0, 50], [1500, 400, "outExpo"]], "h": [[0, 50], [1500, 400, "outExpo"]] }
+    },
+    {
+      "id": "star",
+      "shape": { "type": "star", "points": 5, "inner": 0.45 },
+      "start": 3000, "warn": 250, "end": 7000, "outro": 500,
+      "layer": 1,
+      "tracks": {
+        "x": [[0, -200], [4000, 200, "inOutSine"]],
+        "y": [[0, 200], [1000, 150, "outBounce"], [2000, 220, "inElastic"]],
+        "rot": [[0, 0], [4000, -180, "linear"]],
+        "w": [[0, 90]], "h": [[0, 90]],
+        "opacity": [[0, 1], [3500, 0.5]]
+      }
+    },
+    {
+      "id": "spikes",
+      "shape": { "type": "spikes", "spikes": 10, "inner": 0.8 },
+      "start": 4500, "warn": 300, "end": 7500,
+      "tracks": { "x": [[0, 0], [1000, 0], [1001, 300, "step"]], "y": [[0, 0]], "w": [[0, 80]], "h": [[0, 120]] }
+    },
+    {
+      "id": "tri",
+      "shape": { "type": "polygon", "sides": 3 },
+      "start": 5000, "warn": 0, "end": 7000, "hitboxScale": 0.5,
+      "tracks": { "x": [[0, -300]], "y": [[0, -150]], "w": [[0, 160]], "h": [[0, 140]], "rot": [[0, 30]] }
+    }
+  ],
+  "events": [
+    { "t": 1000, "type": "background", "duration": 1000, "color": "#300018", "ease": "outQuad" },
+    { "t": 1500, "type": "background", "duration": 2000, "color": "#002030", "ease": "linear" },
+    { "t": 2500, "type": "flash", "duration": 400, "color": "#ffffff", "opacity": 0.8 },
+    { "t": 2700, "type": "flash", "duration": 300, "color": "#00e5ff", "opacity": 0.5 },
+    { "t": 3000, "type": "shake", "duration": 300, "intensity": 10 }
+  ]
+}

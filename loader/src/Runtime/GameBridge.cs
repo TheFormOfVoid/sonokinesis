@@ -1,0 +1,192 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Beatform.Loader.Runtime;
+
+/// <summary>Read-mostly access to live game state, with every call guarded against missing objects.</summary>
+internal static class GameBridge
+{
+    public struct HeroCircle
+    {
+        public float X, Y, Radius;
+        public CollisionCircleComponent Component;
+    }
+
+    public static ActorNormalLevelLogic LevelLogic()
+    {
+        try
+        {
+            var scene = MainGame.instance?.gameSceneManager?.gameScene;
+            if (scene == null) return null;
+            return ActorNormalLevelLogic.getNormalLevelLogic();
+        }
+        catch { return null; }
+    }
+
+    /// <summary>The music position of the running level in ms, or null when no level music runs.</summary>
+    public static double? MusicPositionMs(ActorNormalLevelLogic logic)
+    {
+        try
+        {
+            var music = logic?.logicEnemyCreator?.sfxView;
+            return music == null ? null : music.position;
+        }
+        catch { return null; }
+    }
+
+    public static bool IsPausedOrRewinding(ActorNormalLevelLogic logic)
+    {
+        try
+        {
+            if (logic.isPaused()) return true;
+            var rw = logic.logicRewindMusic;
+            return rw != null && rw.isRewinding();
+        }
+        catch { return true; }
+    }
+
+    public static void Heroes(List<HeroCircle> output)
+    {
+        output.Clear();
+        try
+        {
+            var cols = Hero.allCollisionEnemy;
+            if (cols == null) return;
+            for (int i = 0; i < cols.length; i++)
+            {
+                var c = cols[i];
+                var actor = c?.actor;
+                if (actor == null || actor.destroyed) continue;
+                var circle = c.circleCol;
+                output.Add(new HeroCircle
+                {
+                    X = actor.px + (circle?.x ?? 0),
+                    Y = actor.py + (circle?.y ?? 0),
+                    Radius = circle?.radius ?? 8,
+                    Component = c,
+                });
+            }
+        }
+        catch { }
+    }
+
+    private static Actor attacker;
+
+    /// <summary>
+    /// Hands a hit to the game: an attack the size of a dot at the player's center, sent by an actor
+    /// standing where the hazard is. The game applies damage, knockback and invincibility rules.
+    /// </summary>
+    public static void HitHero(HeroCircle hero, float fromX, float fromY)
+    {
+        try
+        {
+            attacker ??= new Actor();
+            attacker.setPos(fromX, fromY);
+            CollisionCircleComponent.attackTargets(attacker, Hero.allCollisionEnemy, hero.X, hero.Y, 0.5f, 0, 0);
+        }
+        catch (Exception e) { Plugin.Logger.LogWarning("hit failed: " + e.Message); }
+    }
+
+    /// <summary>Concatenated matrix of the gameplay hazard layer: follows camera moves and kicks.</summary>
+    public static Matrix4x4 GameplayLayerMatrix()
+    {
+        try
+        {
+            var layers = CameraFlashContainers.instance;
+            return layers?.enemyVisual?.transform?.concatenedMatrix ?? Matrix4x4.identity;
+        }
+        catch { return Matrix4x4.identity; }
+    }
+
+    /// <summary>Hides the game's background art layers so the level's own background shows.</summary>
+    public static void HideGameBackground()
+    {
+        try
+        {
+            var l = CameraFlashContainers.instance;
+            if (l == null) return;
+            if (l.mapBackVisual != null) l.mapBackVisual.visible = false;
+            if (l.backgroundVisual != null) l.backgroundVisual.visible = false;
+            if (l.fake3dVisual != null) l.fake3dVisual.visible = false;
+            if (l.backFxVisual != null) l.backFxVisual.visible = false;
+        }
+        catch { }
+    }
+
+    private static float lastHeroZ = -0.05f;
+
+    /// <summary>
+    /// Depth of the front-most player sprite. The game assigns sprite depth in draw order, and its own
+    /// hazards come right after the players, so Beatform draws just in front of this value.
+    /// </summary>
+    public static float FrontHeroZ()
+    {
+        float best = float.MaxValue;
+        try
+        {
+            var cols = Hero.allCollisionEnemy;
+            for (int i = 0; cols != null && i < cols.length; i++)
+            {
+                var hero = cols[i]?.actor?.TryCast<Hero>();
+                var root = hero?.heroRenderer?.heroContainerMc;
+                if (root != null) MinShapeZ(root, ref best, 0);
+            }
+        }
+        catch { }
+        if (best != float.MaxValue) lastHeroZ = best;
+        return lastHeroZ;
+    }
+
+    private static void MinShapeZ(DisplayObject d, ref float best, int depth)
+    {
+        if (d == null || depth > 6) return;
+        if (d.hasMetaGo)
+        {
+            var go = d.metaSpriteGo;
+            if (go != null && go.transform != null)
+            {
+                float z = go.transform.position.z;
+                if (z < best) best = z;
+            }
+        }
+        var c = d.TryCast<DisplayObjectContainer>();
+        if (c == null) return;
+        for (var ch = c.firstChild; ch != null; ch = ch.nextSibling) MinShapeZ(ch, ref best, depth + 1);
+    }
+
+    public static void CameraKick(float angleDeg, int force)
+    {
+        try { CameraFlash.mainCamera?.kickback(angleDeg, force); } catch { }
+    }
+
+    /// <summary>The live UI actor of the given game UI type, or null.</summary>
+    public static T FindUi<T>() where T : UIBase
+    {
+        try
+        {
+            var list = UIBase.manager.actorList;
+            var name = typeof(T).Name;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var a = list[i];
+                if (a == null || a.destroyed) continue;
+                if (a.TryCast<Il2CppSystem.Object>().GetIl2CppType().Name != name) continue;
+                return a.TryCast<T>();
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    public static bool InMainMenu() => FindUi<UI_MainMenu02>() != null;
+
+    /// <summary>True on the main menu or the playlist screen: places where a level may be started.</summary>
+    public static bool InMenu() => InMainMenu() || FindUi<UI_Practice>() != null;
+
+    /// <summary>Redraws the playlist screen so it shows restored numbers (beat points).</summary>
+    public static void RefreshMenus()
+    {
+        try { FindUi<UI_Practice>()?.refresh(); } catch { }
+    }
+}

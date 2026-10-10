@@ -1,0 +1,20 @@
+# Research output derived from the game's binaries stays local, never committed or shared.
+research/rea/
+research/game-api/
+research/dumps/
+research/tools/*/bin/
+research/tools/*/obj/
+
+# Build output
+loader/src/bin/
+loader/src/obj/
+loader/dist/
+editor/.godot/
+editor/build/
+*.user
+
+# Local copies of the player's save data
+research/save-backup/
+loader/tests/*/bin/
+loader/tests/*/obj/
+research/audio-test/

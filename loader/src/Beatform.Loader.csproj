@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>Beatform.Loader</AssemblyName>
+    <RootNamespace>Beatform.Loader</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!-- Path to the player's own game install. The loader only links against the interop
+         assemblies BepInEx generates locally; none of them are ever copied or shipped. -->
+    <GameDir Condition="'$(GameDir)' == ''">G:\Steam\steamapps\common\Just Shapes &amp; Beats</GameDir>
+    <CoreDir>$(GameDir)\BepInEx\core</CoreDir>
+    <InteropDir>$(GameDir)\BepInEx\interop</InteropDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="$(CoreDir)\BepInEx.Core.dll" Private="false" />
+    <Reference Include="$(CoreDir)\BepInEx.Unity.IL2CPP.dll" Private="false" />
+    <Reference Include="$(CoreDir)\BepInEx.Unity.Common.dll" Private="false" />
+    <Reference Include="$(CoreDir)\0Harmony.dll" Private="false" />
+    <Reference Include="$(CoreDir)\Il2CppInterop.Runtime.dll" Private="false" />
+    <Reference Include="$(CoreDir)\Il2CppInterop.Common.dll" Private="false" />
+    <Reference Include="$(InteropDir)\Il2Cppmscorlib.dll" Private="false" />
+    <Reference Include="$(InteropDir)\Il2CppSystem.dll" Private="false" />
+    <Reference Include="$(InteropDir)\Assembly-CSharp.dll" Private="false" />
+    <Reference Include="$(InteropDir)\Assembly-CSharp-firstpass.dll" Private="false" />
+    <Reference Include="$(InteropDir)\UnityEngine.dll" Private="false" />
+    <Reference Include="$(InteropDir)\UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="$(InteropDir)\UnityEngine.AudioModule.dll" Private="false" />
+    <Reference Include="$(InteropDir)\UnityEngine.InputLegacyModule.dll" Private="false" />
+    <Reference Include="$(InteropDir)\UnityEngine.IMGUIModule.dll" Private="false" />
+    <Reference Include="$(InteropDir)\UnityEngine.TextRenderingModule.dll" Private="false" />
+    <Reference Include="$(InteropDir)\UnityEngine.ScreenCaptureModule.dll" Private="false" />
+    <Reference Include="$(InteropDir)\UnityEngine.UnityWebRequestModule.dll" Private="false" />
+    <Reference Include="$(InteropDir)\UnityEngine.UnityWebRequestAudioModule.dll" Private="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NLayer" Version="1.16.0" />
+    <PackageReference Include="NVorbis" Version="0.10.5" />
+  </ItemGroup>
+
+  <!-- Copy the built plugin straight into the local game install for testing. -->
+  <Target Name="DeployToGame" AfterTargets="Build" Condition="'$(Deploy)' == 'true'">
+    <MakeDir Directories="$(GameDir)\BepInEx\plugins\Beatform" />
+    <Copy SourceFiles="$(TargetPath);$(TargetDir)NVorbis.dll;$(TargetDir)NLayer.dll" DestinationFolder="$(GameDir)\BepInEx\plugins\Beatform" />
+  </Target>
+
+</Project>
