@@ -132,7 +132,7 @@ public sealed class ImposterSim
     private long steps = -1;
     private double x, y, vx, vy, heading, drawAngle, stretch, warp, lifeT, stateT, trailT, dashAngle;
     private State state;
-    private bool firstDashDone, stopped;
+    private bool firstDashDone, stopped, entered;
     public readonly List<Particle> Trail = new();
     public readonly List<Pulse> Pulses = new();
 
@@ -200,6 +200,7 @@ public sealed class ImposterSim
         lifeT = stateT = trailT = 0;
         state = State.Cruise;
         firstDashDone = stopped = false;
+        entered = Math.Abs(x) <= BoundsX && Math.Abs(y) <= BoundsY;
         Trail.Clear();
         Pulses.Clear();
         Burst();
@@ -264,7 +265,9 @@ public sealed class ImposterSim
 
         x += vx * dt / 1000;
         y += vy * dt / 1000;
-        if (b.Bounds && state != State.Leave)
+        // An imposter that starts off screen comes in first; only then does it stay on screen.
+        if (!entered && Math.Abs(x) <= BoundsX && Math.Abs(y) <= BoundsY) entered = true;
+        if (b.Bounds && entered && state != State.Leave)
         {
             if (x < -BoundsX) { x = -BoundsX; vx *= -0.5; }
             if (x > BoundsX) { x = BoundsX; vx *= -0.5; }

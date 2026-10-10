@@ -34,6 +34,10 @@ public sealed class LevelEvaluator
     public const double ActivationFlashMs = 120;
     public const double WarningPulseMs = 240;
     public const int MaxParentDepth = 16;
+    /// <summary>Decoration at or below this layer is backdrop: drawn behind the players and everything else.</summary>
+    public const int BackdropLayer = -10;
+
+    public static bool IsBackdrop(in DrawItem it) => it.Object.Layer <= BackdropLayer && !it.Object.Hitbox;
 
     public readonly LevelData Level;
     private readonly List<int>[] bins;
@@ -126,7 +130,9 @@ public sealed class LevelEvaluator
             case Phase.Active:
                 alpha = 1;
                 double since = t - o.ActiveStart;
-                if (since < ActivationFlashMs) c = Rgba.Lerp(Level.Flash, c, (float)(since / ActivationFlashMs));
+                // Backdrop decoration never flashes; everything else starts in the flash colour.
+                if (since < ActivationFlashMs && !(o.Layer <= BackdropLayer && !o.Hitbox))
+                    c = Rgba.Lerp(Level.Flash, c, (float)(since / ActivationFlashMs));
                 break;
             case Phase.Outro:
                 alpha = o.Outro > 0 ? 1 - (t - o.ActiveEnd) / o.Outro : 0;

@@ -164,7 +164,6 @@ internal static class GameBridge
             if (l.mapBackVisual != null) l.mapBackVisual.visible = false;
             if (l.backgroundVisual != null) l.backgroundVisual.visible = false;
             if (l.fake3dVisual != null) l.fake3dVisual.visible = false;
-            if (l.backFxVisual != null) l.backFxVisual.visible = false;
         }
         catch { }
     }

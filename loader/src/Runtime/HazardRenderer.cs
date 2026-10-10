@@ -19,6 +19,8 @@ internal sealed class HazardRenderer
     private readonly DynamicMesh hazards;
     private readonly DynamicMesh overlay;
     private readonly DynamicMesh background;
+    /// <summary>Backdrop objects (layer at or below LevelEvaluator.BackdropLayer), behind everything.</summary>
+    private readonly DynamicMesh backdrop;
     private readonly List<DrawItem> items = new();
     private readonly List<Rgba> flashes = new();
 
@@ -27,6 +29,7 @@ internal sealed class HazardRenderer
     public HazardRenderer(Transform host)
     {
         background = new DynamicMesh("Beatform Background", host);
+        backdrop = new DynamicMesh("Beatform Backdrop", host);
         hazards = new DynamicMesh("Beatform Hazards", host);
         overlay = new DynamicMesh("Beatform Overlay", host);
         SetVisible(false);
@@ -36,6 +39,7 @@ internal sealed class HazardRenderer
     {
         Visible = v;
         background.SetActive(v);
+        backdrop.SetActive(v);
         hazards.SetActive(v);
         overlay.SetActive(v);
     }
@@ -56,24 +60,11 @@ internal sealed class HazardRenderer
 
         DrawBackground(ev, t);
 
-        int vCount = 0, iCount = 0;
-        foreach (var it in items) { vCount += it.Geometry.Vertices.Length; iCount += it.Geometry.Indices.Length; }
-        hazards.Begin(vCount, iCount);
-        foreach (var it in items)
-        {
-            var g = it.Geometry;
-            var c = ToColor32(it.Color);
-            int baseIndex = hazards.VertexCount;
-            var m = it.Transform;
-            var verts = g.Vertices;
-            for (int k = 0; k < verts.Length; k++)
-            {
-                var u = verts[k];
-                hazards.AddVertex((float)(m.A * u.X + m.C * u.Y + m.Tx), (float)-(m.B * u.X + m.D * u.Y + m.Ty), c);
-            }
-            var idx = g.Indices;
-            for (int k = 0; k < idx.Length; k++) hazards.AddIndex(baseIndex + idx[k]);
-        }
+        // Backdrop objects go in their own mesh far behind the players and the game's effects; the
+        // rest just behind the players.
+        Fill(backdrop, true);
+        backdrop.End(new Vector3(camX, camY, BackgroundZ - 1), zoom, camRot);
+        Fill(hazards, false);
         hazards.End(new Vector3(camX, camY, hazardZ), zoom, camRot);
 
         ev.Flashes(t, flashes);
@@ -83,10 +74,39 @@ internal sealed class HazardRenderer
         return items;
     }
 
+    private void Fill(DynamicMesh mesh, bool backdropItems)
+    {
+        int vCount = 0, iCount = 0;
+        foreach (var it in items)
+        {
+            if (LevelEvaluator.IsBackdrop(it) != backdropItems) continue;
+            vCount += it.Geometry.Vertices.Length; iCount += it.Geometry.Indices.Length;
+        }
+        mesh.Begin(vCount, iCount);
+        foreach (var it in items)
+        {
+            if (LevelEvaluator.IsBackdrop(it) != backdropItems) continue;
+            var g = it.Geometry;
+            var c = ToColor32(it.Color);
+            int baseIndex = mesh.VertexCount;
+            var m = it.Transform;
+            var verts = g.Vertices;
+            for (int k = 0; k < verts.Length; k++)
+            {
+                var u = verts[k];
+                mesh.AddVertex((float)(m.A * u.X + m.C * u.Y + m.Tx), (float)-(m.B * u.X + m.D * u.Y + m.Ty), c);
+            }
+            var idx = g.Indices;
+            for (int k = 0; k < idx.Length; k++) mesh.AddIndex(baseIndex + idx[k]);
+        }
+    }
+
     /// <summary>Shows only the background (at the last song time); hazards and flashes are cleared.</summary>
     public void DrawBackgroundOnly(LevelEvaluator ev, double t)
     {
         DrawBackground(ev, double.IsNaN(t) ? 0 : t);
+        backdrop.Begin(0, 0);
+        backdrop.End(Vector3.zero, 1);
         hazards.Begin(0, 0);
         hazards.End(Vector3.zero, 1);
         overlay.Begin(0, 0);
@@ -107,6 +127,7 @@ internal sealed class HazardRenderer
     public void Destroy()
     {
         background.Destroy();
+        backdrop.Destroy();
         hazards.Destroy();
         overlay.Destroy();
     }

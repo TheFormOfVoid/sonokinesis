@@ -257,6 +257,10 @@ The drawn color is the object's color with this alpha:
 
 Then the alpha is multiplied by `opacity`. Higher `layer` draws later; equal layers keep file order.
 
+*(v2)* Decoration (`hitbox: false`) on `layer` −10 or lower is **backdrop**: it is drawn behind the
+players and the game's own effects, and it does not flash when it becomes active. Everything else is
+drawn just behind the players, and screen flashes in front of everything.
+
 ### Players *(v2)*
 
 An object whose `parent` is `"@player"` … `"@player4"` is placed relative to that player: step 4 of
@@ -314,7 +318,9 @@ starts with heading `angle` (a chaser: towards the nearest living player), veloc
    ms it dashes. *Leave*: velocity = `dashSpeed` along the remembered heading.
    Dashing means: velocity = `dashSpeed` along the heading, warp 0.8, add a ring and a burst.
 4. Position += velocity · `dt`. With `bounds` (and not leaving) it is kept within
-   `|x| ≤ 620, |y| ≤ 340`; a velocity component that hits the edge is multiplied by −0.5.
+   `|x| ≤ 620, |y| ≤ 340`; a velocity component that hits the edge is multiplied by −0.5. An
+   imposter that starts outside that area is only kept inside once it has entered it, so it can
+   come in from off screen.
 5. Draw angle moves 20 % of the way to the heading (in *stop*, to the heading rounded to 90°).
    Stretch moves 30 % of the way to `min(|velocity| / stretchSpeed, stretchMax)`; warp moves 4 % of
    the way to 0.
