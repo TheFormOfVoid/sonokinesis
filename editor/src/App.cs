@@ -160,9 +160,6 @@ public partial class App : Control
         speed.ItemSelected += i => Song.Speed = new[] { 0.25f, 0.5f, 0.75f, 1f }[i];
         bar.AddChild(speed);
         bar.AddChild(Spacer(8));
-        var playtest = Btn("Playtest", () => TogglePlaytest(), "Play the level here with a stand-in player (P)");
-        playtest.AddThemeColorOverride("font_color", UiTheme.Cyan);
-        bar.AddChild(playtest);
         var inGame = Btn("Test in game", TestInGame, "Start the level in the running game from the playhead (F5). Needs the Beatform loader.");
         inGame.AddThemeColorOverride("font_color", UiTheme.Pink);
         bar.AddChild(inGame);
@@ -280,7 +277,7 @@ public partial class App : Control
 
     public void PlayheadMoved()
     {
-        if (S.Playing && !Canvas.Playtest.Active) StartPlayback(S.Playhead);
+        if (S.Playing) StartPlayback(S.Playhead);
         Canvas.QueueRedraw();
         Timeline.QueueRedraw();
         Inspector.Refresh();
@@ -299,7 +296,6 @@ public partial class App : Control
         S.Playing = false;
         Song.Stop();
         playButton.Text = "▶ Play";
-        Canvas.Playtest.Stop();
         Canvas.QueueRedraw();
         Timeline.QueueRedraw();
         Inspector.Refresh();
@@ -311,25 +307,12 @@ public partial class App : Control
         else StartPlayback(S.Playhead);
     }
 
-    public void TogglePlaytest()
-    {
-        if (Canvas.Playtest.Active) { Canvas.Playtest.Stop(); return; }
-        Canvas.GrabFocus();
-        Canvas.Playtest.Start(S.Playhead);
-        Status("Playtest: WASD or arrows to move, Space to dash, Esc to stop.");
-    }
-
     // ---------------- keyboard ----------------
 
     public override void _UnhandledKeyInput(InputEvent e)
     {
         if (e is not InputEventKey k || !k.Pressed) return;
         bool ctrl = k.CtrlPressed || k.MetaPressed;
-        if (Canvas.Playtest.Active)
-        {
-            if (k.Keycode == Key.Escape || k.Keycode == Key.P) { Canvas.Playtest.Stop(); GetViewport().SetInputAsHandled(); }
-            return;
-        }
         bool handled = true;
         switch (k.Keycode)
         {
@@ -348,7 +331,6 @@ public partial class App : Control
             case Key.G when ctrl: SelectGroup(); break;
             case Key.Delete or Key.Backspace: DeleteSelection(); break;
             case Key.K: KeyAll(); break;
-            case Key.P: TogglePlaytest(); break;
             case Key.F5: TestInGame(); break;
             case Key.Home: S.Playhead = 0; PlayheadMoved(); break;
             case Key.End: S.Playhead = S.Doc.ContentEnd; PlayheadMoved(); break;

@@ -11,7 +11,8 @@ namespace Beatform.Editor.UI;
 /// <summary>
 /// The stage: draws the level at the playhead exactly as the game will (same evaluator), and lets the
 /// creator select and transform objects. Moving a static object moves it; moving an animated object
-/// at the playhead writes a keyframe there. Also hosts the playtest.
+/// at the playhead writes a keyframe there. The editor previews levels but cannot play them:
+/// there is no player here, levels are played in the game.
 /// </summary>
 public partial class CanvasView : Control
 {
@@ -35,12 +36,10 @@ public partial class CanvasView : Control
     private Vector2 scaleCorner;
     private bool dragMoved;
 
-    public Playtest Playtest { get; private set; }
 
     public void Init(SongPlayer songPlayer)
     {
         song = songPlayer;
-        Playtest = new Playtest(songPlayer);
         FocusMode = FocusModeEnum.All;
         ClipContents = true;
         MouseFilter = MouseFilterEnum.Stop;
@@ -54,9 +53,8 @@ public partial class CanvasView : Control
 
     public override void _Process(double delta)
     {
-        if (Playtest.Active) Playtest.Step(delta, items);
-        else Record();
-        if (S.Playing || Playtest.Active || drag != DragMode.None) QueueRedraw();
+        Record();
+        if (S.Playing || drag != DragMode.None) QueueRedraw();
     }
 
     /// <summary>
@@ -136,15 +134,8 @@ public partial class CanvasView : Control
         DrawRect(new Rect2(screen.End.X, screen.Position.Y, Size.X - screen.End.X, screen.Size.Y), dim);
         DrawRect(screen, new Color(1, 1, 1, 0.12f), false, 1);
 
-        if (!Playtest.Active)
-        {
-            DrawSelection(t);
-            if (drag == DragMode.Marquee) DrawRect(MarqueeRect(), new Color(UiTheme.Cyan, 0.15f));
-        }
-        else
-        {
-            Playtest.Draw(this);
-        }
+        DrawSelection(t);
+        if (drag == DragMode.Marquee) DrawRect(MarqueeRect(), new Color(UiTheme.Cyan, 0.15f));
 
         var font = GetThemeDefaultFont();
         string hud = $"{S.FormatTime(t)}   bar {S.FormatBeats(t)}   {items.Count} visible";
@@ -226,7 +217,6 @@ public partial class CanvasView : Control
 
     public override void _GuiInput(InputEvent e)
     {
-        if (Playtest.Active) return;
         if (e is InputEventMouseButton mb)
         {
             if (mb.ButtonIndex == MouseButton.WheelUp || mb.ButtonIndex == MouseButton.WheelDown)

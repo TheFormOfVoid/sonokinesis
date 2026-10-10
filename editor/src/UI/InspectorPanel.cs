@@ -371,7 +371,7 @@ public partial class InspectorPanel : PanelContainer
             "Moving an object with two or more keys writes a key at the playhead: scrub, move, repeat.",
             "Timeline: drag bars to move in time, drag edges to change length. Ctrl+drag duplicates.",
             "Double-click the checkpoint row to add a checkpoint.",
-            "Space plays from the playhead. P playtests with WASD and Space to dash.",
+            "Space previews from the playhead. To play the level, use Test in game.",
             "F5 tests the level in the real game when the Beatform loader is installed.",
         }) box.AddChild(UiTheme.Small("• " + tip, UiTheme.Text));
         Section("Shortcuts");

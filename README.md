@@ -34,7 +34,8 @@ Open `Beatform Editor`. Click **New**, pick a song (`.ogg`, `.mp3` or `.wav`) an
   playhead adds a keyframe there, so you animate by scrubbing and moving.
 - The timeline shows the song waveform, the beat grid, checkpoints, scene events and every object.
   Drag bars to move them in time and drag their edges to change their length.
-- **Playtest** plays the level inside the editor with a stand-in player (WASD to move, Space to dash).
+- **Space** previews the level with its song. The editor has no player: levels are played in the
+  game, so it cannot be used to play anything without owning the game.
 - **Test in game** (F5) starts the level in the running game from the playhead.
 - **Share → Export as .zip** makes a file other players drop into their `CustomLevels` folder.
 

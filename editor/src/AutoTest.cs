@@ -10,7 +10,7 @@ namespace Beatform.Editor;
 /// Runs a script of editor actions, one per line, and saves screenshots. Used to check the editor
 /// without clicking: `godot --path editor -- --autotest script.txt`.
 /// Commands: open DIR · at MS · select IDS|all|none|group:G · shot FILE · wait FRAMES · play · stop ·
-/// playtest · key NAME · palette ITEM X Y · save · undo · quit
+/// key NAME · palette ITEM X Y · save · undo · quit
 /// </summary>
 public sealed class AutoTest
 {
@@ -53,7 +53,6 @@ public sealed class AutoTest
                 case "wait": wait = int.Parse(arg); break;
                 case "play": app.StartPlayback(s.Playhead); break;
                 case "stop": app.StopPlayback(); break;
-                case "playtest": app.TogglePlaytest(); break;
                 case "palette":
                     var p = arg.Split(' ');
                     app.Palette.DropAt(p[0], double.Parse(p[1]), double.Parse(p[2]));
