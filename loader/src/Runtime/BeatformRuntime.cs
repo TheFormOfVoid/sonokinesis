@@ -23,11 +23,15 @@ public class BeatformRuntime : MonoBehaviour
     private bool sessionSeenInGame;
     private float sessionStartedAt;
     private double lastSongTime = double.NaN;
+    private readonly SongClock clock = new();
+    private readonly PlayerList players = new();
     private readonly List<(LevelEvent e, double started)> activeShakes = new();
     private double nextShakeKick;
     private readonly System.Random shakeRandom = new(1234);
 
     internal static BeatformRuntime Instance { get; private set; }
+    /// <summary>The song time drawn in the last frame (for the dev console).</summary>
+    internal double LastSongTime => lastSongTime;
     [HideFromIl2Cpp] internal Launcher Launcher => launcher;
     [HideFromIl2Cpp] internal LevelMenu Menu => menu;
 
@@ -92,24 +96,25 @@ public class BeatformRuntime : MonoBehaviour
             renderer.DrawBackgroundOnly(level.Evaluator, lastSongTime);
             return;
         }
-        double t = level.SongTime(audioMs);
+        bool frozen = GameBridge.IsPausedOrRewinding(logic);
+        double t = clock.Next(level.SongTime(audioMs), Time.unscaledTimeAsDouble * 1000, Time.unscaledDeltaTime * 1000, frozen);
 
         GameBridge.HideGameBackground();
         if (!renderer.Visible) renderer.SetVisible(true);
         long t0 = Settings.DevConsole ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+        GameBridge.Heroes(heroes);
+        UpdatePlayers(level.Evaluator);
         float heroZ = GameBridge.FrontHeroZ();
         long t1 = Settings.DevConsole ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         var items = renderer.Draw(level.Evaluator, t, GameBridge.GameplayLayerMatrix(), heroZ - 0.004f);
         long t2 = Settings.DevConsole ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
 
-        bool frozen = GameBridge.IsPausedOrRewinding(logic);
         if (!frozen)
         {
-            GameBridge.Heroes(heroes);
             foreach (var h in heroes)
             {
-                if (!level.Evaluator.Hits(items, new Vec2(h.X, h.Y), h.Radius, out var by)) continue;
-                var c = LevelEvaluator.TransformAt(by, t).Apply(0, 0);
+                if (h.Dead || !level.Evaluator.FirstHit(items, new Vec2(h.X, h.Y), h.Radius, out var hit)) continue;
+                var c = (hit.HasHitTransform ? hit.HitTransform : hit.Transform).Apply(0, 0);
                 GameBridge.HitHero(h, (float)c.X, (float)c.Y);
             }
             RunShakes(level.Data, t);
@@ -120,6 +125,26 @@ public class BeatformRuntime : MonoBehaviour
             Profile.Add((t1 - t0) * ms, (t2 - t1) * ms, (System.Diagnostics.Stopwatch.GetTimestamp() - t2) * ms);
         }
         lastSongTime = t;
+    }
+
+    /// <summary>Hands the players' positions to the level: imposters chase them, anchored objects follow them.</summary>
+    [HideFromIl2Cpp]
+    private void UpdatePlayers(LevelEvaluator evaluator)
+    {
+        players.Players.Clear();
+        for (int i = 0; i < heroes.Count; i++)
+        {
+            var h = heroes[i];
+            uint c = h.Color;
+            players.Players.Add(new PlayerInfo
+            {
+                Number = h.Number > 0 ? h.Number : i + 1,
+                Position = new Vec2(h.X, h.Y),
+                Color = c != 0 ? new Rgba(((c >> 16) & 255) / 255f, ((c >> 8) & 255) / 255f, (c & 255) / 255f) : LevelData.DefaultPlayerColor,
+                Alive = !h.Dead,
+            });
+        }
+        evaluator.Players = players;
     }
 
     /// <summary>Shake events fire when playback crosses their start; jumps (rewinds, seeks) skip them.</summary>
@@ -167,6 +192,7 @@ public class BeatformRuntime : MonoBehaviour
         renderer.SetVisible(false);
         activeShakes.Clear();
         lastSongTime = double.NaN;
+        clock.Reset();
         sessionStartedAt = 0;
         sessionSeenInGame = false;
         CustomSession.End();

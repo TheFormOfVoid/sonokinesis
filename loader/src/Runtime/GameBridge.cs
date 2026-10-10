@@ -11,6 +11,11 @@ internal static class GameBridge
     {
         public float X, Y, Radius;
         public CollisionCircleComponent Component;
+        /// <summary>1 to 4, from the player's model (0 if unknown).</summary>
+        public int Number;
+        /// <summary>The player's colour as 0xRRGGBB.</summary>
+        public uint Color;
+        public bool Dead;
     }
 
     public static ActorNormalLevelLogic LevelLogic()
@@ -59,13 +64,22 @@ internal static class GameBridge
                 var actor = c?.actor;
                 if (actor == null || actor.destroyed) continue;
                 var circle = c.circleCol;
-                output.Add(new HeroCircle
+                var info = new HeroCircle
                 {
                     X = actor.px + (circle?.x ?? 0),
                     Y = actor.py + (circle?.y ?? 0),
                     Radius = circle?.radius ?? 8,
                     Component = c,
-                });
+                };
+                try
+                {
+                    var hero = actor.TryCast<Hero>();
+                    var model = hero?.modelPlayer;
+                    if (model != null) { info.Number = model.getPlayerNumber(); info.Color = model.color; }
+                    info.Dead = hero?.lifeComponent?.isDead ?? false;
+                }
+                catch { }
+                output.Add(info);
             }
         }
         catch { }

@@ -1,4 +1,4 @@
-# Beatform level format, version 1
+# Beatform level format, version 2
 
 A Beatform level is a folder. The editor writes it, the loader reads it, and both must draw and
 collide it identically, so every rule that affects what the player sees or touches is defined here.
@@ -26,7 +26,7 @@ A level may also be shipped as a `.zip` of that folder; the loader treats the zi
 ```json
 {
   "format": "beatform.level",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "meta": { ... },
   "theme": { ... },
   "settings": { ... },
@@ -124,9 +124,10 @@ An object is one shape with an animated transform. Everything a level does is bu
 | `outro` | `0` | Length of the fade out, ending at `end`. |
 | `hitbox` | `true` | `false` makes the object decoration only. |
 | `hitboxScale` | `1` | Multiplied with `settings.hitboxScale`. |
-| `color` | `theme.hazard` | Object color. |
+| `color` | `theme.hazard` | Object color, or `"@player"` for the colour of the player it follows (player 1 if it follows none). *(v2)* |
 | `layer` | `0` | Draw order. Higher layers draw on top. Ties keep file order. |
-| `parent` | none | Id of another object. See *Parenting*. |
+| `parent` | none | Id of another object, or a player: `"@player"` (player 1), `"@player2"` … `"@player4"`. See *Transform* and *Players*. |
+| `imposter` | none | Makes the object move like a player. See *Imposters*. *(v2)* |
 | `pivot` | `[0, 0]` | The point that `x`/`y` place and that rotation and scale turn around, in fractions of the object's size: `[-0.5, 0]` is the middle of the left edge. |
 
 ### Phases
@@ -208,9 +209,27 @@ same polygons. Circles use 48 segments, the first one at angle 0 (pointing to `+
 | `star` | `points` (3–12, default 5), `inner` (0.1–0.95, default 0.5) | alternating outer radius 0.5 and inner radius `0.5·inner`, first outer vertex pointing up |
 | `ring` | `thickness` (0.02–0.5, default 0.12) | annulus between radius 0.5 and `0.5 - thickness` |
 | `spikes` | `spikes` (4–24, default 12), `inner` (0.4–0.95, default 0.75) | spike ball: like `star` with `points = spikes` |
+| `text` | `text` (string, default `""`), `weight` (0.04–0.4, default 0.14) | the unit square (see *Text* below) |
 
 The `rect` is filled corner to corner. `circle`, `polygon`, `star` and `spikes` are filled as one
 polygon. `ring` fills the area between its two circles.
+
+#### Text
+
+`text` draws one line in Beatform's stroke font. Each glyph is a set of polylines on a grid 4 units
+wide and 6 units tall (x right, y down); the glyph table in `shared/Core/StrokeFont.cs` is the
+reference. Lowercase letters use the uppercase glyphs; spaces and characters without a glyph leave
+an empty cell.
+
+Glyph `i` (0-based) starts at `x = i · 5.4` (4 for the glyph plus 1.4 spacing). The line is
+`n · 5.4 − 1.4` units wide (`n` = number of characters, at least 1). Every point is divided by 6, so
+the letters are 1 unit tall, centred on `(0, 0)`, and then its x is divided by the line width
+`width = (n · 5.4 − 1.4) / 6`. That squeezes the line into the unit square, so an object with
+`w = h · width` shows undistorted letters.
+
+Each polyline segment is drawn as a rectangle `weight` thick (in letter heights, before the
+horizontal squeeze), extended by `weight / 2` past both ends. For collision a text object is its whole
+box (the unit square). Most text is decoration and has `hitbox: false`.
 
 ### Transform
 
@@ -237,6 +256,87 @@ The drawn color is the object's color with this alpha:
 | outro | `1 - (T - b)/outro` | — |
 
 Then the alpha is multiplied by `opacity`. Higher `layer` draws later; equal layers keep file order.
+
+### Players *(v2)*
+
+An object whose `parent` is `"@player"` … `"@player4"` is placed relative to that player: step 4 of
+*Transform* ends by adding the player's position (the player contributes position only). While that
+player is not in the game, or is dead, the object is not drawn and cannot hurt. Players are numbered
+as the game numbers them; a solo player is player 1. Tools without players (the editor) use a
+stand-in player 1.
+
+### Imposters *(v2)*
+
+An object with an `imposter` block moves like a player instead of following its `x`/`y` tracks. Its
+tracks still give its spawn point (`x`, `y` at the end of the warning), its size (`w`, `h`) and its
+`opacity`; `rot`, `pivot` and `parent` are ignored. Other objects can use an imposter as their
+`parent`; they then follow its position only.
+
+```json
+"imposter": { "mode": "chase", "speed": 383, "dashSpeed": 1467, "dashEvery": 550, "leaveAt": 10000 }
+```
+
+| field | default | meaning |
+|---|---|---|
+| `mode` | `"chase"` | `"chase"`: always heads for the nearest living player. `"straight"`: keeps `angle`. |
+| `angle` | `180` | Heading in degrees, `0` right, `90` down. Chasers use it while no player is alive. |
+| `speed` | `383` | Cruising speed, units per second. |
+| `dashSpeed` | `1467` | Speed at the start of a dash. |
+| `dashDrag` | `0.9` | While faster than `speed`, velocity is multiplied by this every step. |
+| `dashTime` | `450` | Length of a dash in ms. |
+| `dashEvery` | `550` | Cruising time between dashes in ms. |
+| `firstDash` | `dashEvery` | Cruising time before the first dash; `0` dashes on activation. |
+| `stopAt`, `stopFor` | never, `0` | After `stopAt` ms it brakes and stands for `stopFor` ms, then dashes. |
+| `leaveAt` | never | After `leaveAt` ms it dashes away on its heading at `dashSpeed` and no longer hurts. |
+| `bounds` | `true` for chase | Keeps it inside the screen while hunting. |
+| `stretchSpeed`, `stretchMax` | `2000`, `0.4` | How speed stretches it. |
+| `effects` | `true` | Trail, dash bursts, dash rings and drop shadow. |
+
+**Warning phase.** It sits at its spawn point, scaled by `outBack(t / warn)`, drawn in warning style.
+A chaser faces the nearest living player.
+
+**Simulation.** From the end of the warning the imposter runs in fixed steps of `1000/60` ms. It
+starts with heading `angle` (a chaser: towards the nearest living player), velocity 0, in the
+*cruise* state, and throws a burst (below); with `firstDash: 0` it dashes at once. Each step, with
+`dt` the step length in seconds and `life` the time since activation:
+
+1. If `life ≥ leaveAt`, it switches to *leave* once: remembers its heading, warp 0.8, adds a ring
+   and a burst. If `life ≥ stopAt`, it switches to *stop* once (unless leaving).
+2. A chaser with a living player sets heading towards the nearest one (in *cruise* and *dash*).
+3. *Cruise*: velocity = `speed` along the heading; after `firstDash` (first time) or `dashEvery` ms
+   in this state it dashes. *Dash*: a chaser turns its velocity to the heading keeping its speed;
+   if faster than `speed` the velocity is multiplied by `dashDrag`, otherwise set to `speed` along
+   the heading; after `dashTime` ms it returns to *cruise*. *Stop*: velocity × 0.8; after `stopFor`
+   ms it dashes. *Leave*: velocity = `dashSpeed` along the remembered heading.
+   Dashing means: velocity = `dashSpeed` along the heading, warp 0.8, add a ring and a burst.
+4. Position += velocity · `dt`. With `bounds` (and not leaving) it is kept within
+   `|x| ≤ 620, |y| ≤ 340`; a velocity component that hits the edge is multiplied by −0.5.
+5. Draw angle moves 20 % of the way to the heading (in *stop*, to the heading rounded to 90°).
+   Stretch moves 30 % of the way to `min(|velocity| / stretchSpeed, stretchMax)`; warp moves 4 % of
+   the way to 0.
+
+Between steps it is drawn at the last step's position plus velocity times the time since. With
+`s = stretch + warp`, it is drawn rotated by the draw angle and scaled to `w·(1+s)` by
+`h·max(0.25, 1 − 0.6·s)`. It hurts like an object of size `w × h` at that position and angle
+(unstretched) during its active phase, except while leaving. Going back in time (a seek or a rewind)
+restarts the run; chasers then follow where the players are now.
+
+**Effects** (decoration, the object's colour, never hurting):
+
+- *Trail*: while faster than 67 units/s, every 35 ms a copy of its shape is left at the position
+  plus `(sin(life·45)·4, cos(life·32)·4)`, rotated `heading + sin(life·60)·90`, size
+  `0.25 + sin(life·80)·0.1` (life in ms, sines in radians). Trail copies of a `circle` are drawn as
+  a 10-sided `polygon`.
+- *Burst*: 12 copies, for `c = 0…11`: `r1 = sin(life·113 + 45c)`, `r2 = cos(life·277 + 83c)`,
+  `r3 = sin(life·341 + 67c)`; direction `heading + 180 + 55·r1` degrees, speed `133 + 533·|r2|`,
+  size `0.08 + 0.12·|r3|`, starting life 1.2.
+- Every copy loses 2.5 life per second (drawn with alpha `0.7·min(1, life)` at `size·life` of the
+  object's `w × h`) and its velocity is multiplied by 0.88 every step.
+- *Ring*: a `ring` of thickness 0.155 at the dash point, diameter `2.8·scale·w`, scale starting at
+  0.2 and growing 8 per second, alpha `0.8·a` with `a` falling from 1 by 3.5 per second.
+- *Shadow*: the stretched body in black at alpha 0.3, offset by (4, 4).
+
+Effects are drawn under the body, in the order rings, trail, shadow.
 
 ### Collision
 
@@ -268,4 +368,5 @@ Events change the whole scene at a song time.
 
 - The loader rejects files whose `formatVersion` is greater than it supports and says so in the level
   list.
-- Version 1 levels will always load in later loaders.
+- Version 1 levels will always load in later loaders. Version 2 adds players (`"@player"` parents and
+  colours) and imposters; the editor writes version 2.

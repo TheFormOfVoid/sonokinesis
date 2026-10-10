@@ -59,7 +59,7 @@ public sealed class Track
     }
 }
 
-public enum ShapeType { Rect, Circle, Polygon, Star, Ring, Spikes }
+public enum ShapeType { Rect, Circle, Polygon, Star, Ring, Spikes, Text }
 
 public sealed class ShapeDef
 {
@@ -69,6 +69,8 @@ public sealed class ShapeDef
     public double Inner = 0.5;
     public double Thickness = 0.12;
     public int Spikes = 12;
+    public string Text = "";
+    public double Weight = 0.14;
 
     /// <summary>Key used to share precomputed geometry between objects with identical shapes.</summary>
     public string GeometryKey => Type switch
@@ -79,6 +81,7 @@ public sealed class ShapeDef
         ShapeType.Star => $"star{Points}_{Inner:0.###}",
         ShapeType.Ring => $"ring{Thickness:0.###}",
         ShapeType.Spikes => $"spikes{Spikes}_{Inner:0.###}",
+        ShapeType.Text => $"text{Weight:0.###}_{Text}",
         _ => "rect",
     };
 }
@@ -95,6 +98,12 @@ public sealed class LevelObject
     public int Layer;
     public string ParentId;
     public LevelObject Parent;
+    /// <summary>1–4 when the parent is a player ("@player", "@player2"...), 0 otherwise.</summary>
+    public int PlayerAnchor;
+    /// <summary>The colour is the colour of the anchored player (or player 1): "color": "@player".</summary>
+    public bool ColorFromPlayer;
+    /// <summary>Moves like a player instead of following its x/y tracks. Null for ordinary objects.</summary>
+    public ImposterBehavior Imposter;
     public double PivotX, PivotY;
     public Track X = new() { Default = 0 };
     public Track Y = new() { Default = 0 };
@@ -140,7 +149,7 @@ public sealed class LevelMeta
 
 public sealed class LevelData
 {
-    public const int SupportedFormatVersion = 1;
+    public const int SupportedFormatVersion = 2;
 
     public int FormatVersion = 1;
     public LevelMeta Meta = new();
@@ -247,6 +256,7 @@ public sealed class LevelData
             Hitbox = Bool(o, "hitbox", true),
             HitboxScale = Num(o, "hitboxScale", 1),
             Color = Rgba.Parse(Str(o, "color"), level.Hazard),
+            ColorFromPlayer = Str(o, "color") == "@player",
             Layer = (int)Num(o, "layer", 0),
             ParentId = Str(o, "parent"),
         };
@@ -258,6 +268,9 @@ public sealed class LevelData
             obj.PivotY = pv[1].GetDouble();
         }
         if (o.TryGetProperty("shape", out var sh)) obj.Shape = ParseShape(sh);
+        if (o.TryGetProperty("imposter", out var imp) && imp.ValueKind == JsonValueKind.Object) obj.Imposter = ImposterBehavior.Parse(imp);
+        obj.PlayerAnchor = PlayerAnchorOf(obj.ParentId);
+        if (obj.ColorFromPlayer) obj.Color = DefaultPlayerColor;
         if (o.TryGetProperty("tracks", out var tr))
         {
             ReadTrack(tr, "x", obj.X);
@@ -280,8 +293,11 @@ public sealed class LevelData
             case "star": s.Type = ShapeType.Star; break;
             case "ring": s.Type = ShapeType.Ring; break;
             case "spikes": s.Type = ShapeType.Spikes; break;
+            case "text": s.Type = ShapeType.Text; break;
             default: s.Type = ShapeType.Rect; break;
         }
+        s.Text = Str(sh, "text") ?? "";
+        s.Weight = Math.Clamp(Num(sh, "weight", 0.14), 0.04, 0.4);
         s.Sides = Math.Clamp((int)Num(sh, "sides", 3), 3, 12);
         s.Points = Math.Clamp((int)Num(sh, "points", 5), 3, 12);
         s.Spikes = Math.Clamp((int)Num(sh, "spikes", 12), 4, 24);
@@ -311,12 +327,23 @@ public sealed class LevelData
         track.Keys = indexed.ConvertAll(x => x.k).ToArray();
     }
 
+    /// <summary>The colour used for "@player" when the player's own colour is unknown (the editor's stand-in).</summary>
+    public static readonly Rgba DefaultPlayerColor = new(0x2e / 255f, 0xe8 / 255f, 1f);
+
+    /// <summary>"@player" is player 1; "@player2" to "@player4" are the others.</summary>
+    public static int PlayerAnchorOf(string parent)
+    {
+        if (parent == null || !parent.StartsWith("@player")) return 0;
+        if (parent.Length == 7) return 1;
+        return int.TryParse(parent.Substring(7), out int n) && n >= 1 && n <= 4 ? n : 0;
+    }
+
     private static void LinkParents(LevelData level)
     {
         var byId = new Dictionary<string, LevelObject>();
         foreach (var o in level.Objects) byId[o.Id] = o;
         foreach (var o in level.Objects)
-            if (!string.IsNullOrEmpty(o.ParentId) && byId.TryGetValue(o.ParentId, out var p) && p != o) o.Parent = p;
+            if (o.PlayerAnchor == 0 && !string.IsNullOrEmpty(o.ParentId) && byId.TryGetValue(o.ParentId, out var p) && p != o) o.Parent = p;
     }
 
     private static string Str(JsonElement e, string name) =>

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Beatform.Core;
 
@@ -27,6 +28,7 @@ internal static class Program
         GeometryTests();
         var level = LevelData.Parse(File.ReadAllText(Path.Combine(repo, "spec", "examples", "vectors", "level.json")));
         LevelTests(level);
+        ImposterTests();
         WriteVectors(level, Path.Combine(repo, "spec", "test-vectors.json"));
         Console.WriteLine(failures == 0 ? "all core tests passed" : $"{failures} failures");
         return failures == 0 ? 0 : 1;
@@ -76,6 +78,22 @@ internal static class Program
         var tri = ShapeGeometry.For(new ShapeDef { Type = ShapeType.Polygon, Sides = 3 });
         Near(tri.Outline[0].X, 0, "triangle points up (x)", 1e-12);
         Near(tri.Outline[0].Y, -0.5, "triangle points up (y)", 1e-12);
+        // Text: one line squeezed into the unit box; "Hh" is 3 + 3 strokes (lowercase uses the uppercase glyph), two triangles each.
+        Near(StrokeFont.Width("HI"), (2 * 4 + 1.4) / 6, "text width of two letters");
+        Near(StrokeFont.Width(""), 4.0 / 6, "empty text is one letter wide");
+        var hi = ShapeGeometry.For(new ShapeDef { Type = ShapeType.Text, Text = "Hh", Weight = 0.1 });
+        Check(hi.Indices.Length == 6 * 6 && hi.Vertices.Length == 6 * 4, $"text Hh has 6 strokes (got {hi.Indices.Length / 6})");
+        Check(hi.Outline.Length == 4 && hi.Outline[0].X == -0.5 && hi.Outline[2].Y == 0.5, "text collides as its box");
+        double minX = double.MaxValue, maxX = double.MinValue;
+        foreach (var v in hi.Vertices) { minX = Math.Min(minX, v.X); maxX = Math.Max(maxX, v.X); }
+        Near(minX, -0.5 - 0.05 / StrokeFont.Width("HH"), "text starts at the box edge (minus half a stroke)", 1e-9);
+        Near(maxX, 0.5 + 0.05 / StrokeFont.Width("HH"), "text ends at the box edge (plus half a stroke)", 1e-9);
+        var spaced = ShapeGeometry.For(new ShapeDef { Type = ShapeType.Text, Text = "H I~", Weight = 0.1 });
+        Check(spaced.Indices.Length == 6 * 6, "spaces and unknown characters draw nothing");
+        var parsed = LevelData.Parse("{\"format\":\"beatform.level\",\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},"
+            + "\"objects\":[{\"shape\":{\"type\":\"text\",\"text\":\"OK\",\"weight\":9}}]}");
+        Check(parsed.Objects[0].Shape.Type == ShapeType.Text && parsed.Objects[0].Shape.Text == "OK", "text shape parses");
+        Near(parsed.Objects[0].Shape.Weight, 0.4, "text weight is clamped");
         var square = new[] { new Vec2(-1, -1), new Vec2(1, -1), new Vec2(1, 1), new Vec2(-1, 1) };
         Check(Collision.CircleOverlapsPolygon(new Vec2(0, 0), 0.1, square, 4), "center inside");
         Check(Collision.CircleOverlapsPolygon(new Vec2(1.5, 0), 0.6, square, 4), "edge touch");
@@ -132,6 +150,88 @@ internal static class Program
         var flashes = new List<Rgba>();
         ev.Flashes(2750, flashes);
         Check(flashes.Count == 2, "two overlapping flashes");
+    }
+
+    private static LevelData Mini(string objects) => LevelData.Parse(
+        "{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"objects\":[" + objects + "]}");
+
+    private static void ImposterTests()
+    {
+        // A straight drive-by: cruises left at 200 u/s, first dash after 500 ms.
+        var level = Mini("{\"id\":\"d\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"warn\":1000,\"end\":9000,"
+            + "\"imposter\":{\"mode\":\"straight\",\"angle\":180,\"speed\":200,\"dashSpeed\":667,\"dashEvery\":500,\"dashTime\":450},"
+            + "\"tracks\":{\"x\":[[0,600]],\"y\":[[0,-100]],\"w\":[[0,24]],\"h\":[[0,24]]}}");
+        var ev = new LevelEvaluator(level);
+        var d = level.Objects[0];
+        Check(d.Imposter != null && d.Imposter.Mode == ImposterMode.Straight && !d.Imposter.Bounds, "imposter parses (straight, no bounds)");
+        var sim = ev.SimAt(d, 500);
+        Near(sim.X, 600, "warning: sits at its spawn point");
+        Check(sim.Grow > 0 && sim.Grow < 1.2, "warning: grows in");
+        sim = ev.SimAt(d, 1000 + 24 * ImposterSim.StepMs);
+        Near(sim.X, 600 - 80, "cruise 400 ms at 200 u/s", 1e-6);
+        Near(sim.Y, -100, "straight left keeps y", 1e-6);
+        double beforeDash = sim.X;
+        sim = ev.SimAt(d, 1000 + 37 * ImposterSim.StepMs);
+        Check(beforeDash - sim.X > 13 * 200 / 60.0 * 1.5, "a dash moves faster than cruising");
+        Check(sim.StretchX > 1.5 && sim.StretchY < 0.7, "dashing stretches the body");
+        Check(sim.Pulses.Count == 1, "a dash leaves one ring");
+        Check(sim.Trail.Count > 12, "a dash throws a burst of trail copies");
+        double at3s = ev.SimAt(d, 3000).X;
+        Near(ev.SimAt(d, 1200).X, ev.SimAt(d, 1200).X, "going back in time restarts the run");
+        Near(ev.SimAt(d, 3000).X, at3s, "the run is repeatable", 1e-9);
+
+        var items = new List<DrawItem>();
+        ev.Collect(3000, items);
+        var body = items[items.Count - 1];
+        Check(body.Order == 3 && !body.Harmless && items.Take(items.Count - 1).All(i => i.Harmless), "effects are harmless, the body is not");
+        var center = body.HitTransform.Apply(0, 0);
+        Check(ev.Hits(items, center, 8, out _), "player on the imposter is hit");
+        Check(!ev.Hits(items, new Vec2(center.X, center.Y - 60), 8, out _), "player away from it is safe");
+
+        // A chaser heads for the nearest living player and stays on screen.
+        var chase = Mini("{\"id\":\"c\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":20000,"
+            + "\"imposter\":{\"speed\":300,\"dashEvery\":100000,\"leaveAt\":5000},"
+            + "\"tracks\":{\"x\":[[0,0]],\"y\":[[0,0]],\"w\":[[0,22]],\"h\":[[0,22]]}}");
+        var cev = new LevelEvaluator(chase);
+        var players = new PlayerList();
+        players.Players.Add(new PlayerInfo { Number = 1, Position = new Vec2(-2000, 0), Alive = true });
+        players.Players.Add(new PlayerInfo { Number = 2, Position = new Vec2(0, 3000), Alive = false });
+        cev.Players = players;
+        var c = chase.Objects[0];
+        var cs = cev.SimAt(c, 1000);
+        Check(cs.X < -250 && Math.Abs(cs.Y) < 1e-6, $"chaser goes for the living player (x {cs.X:0.0})");
+        cs = cev.SimAt(c, 4000);
+        Near(cs.X, -ImposterSim.BoundsX, "chaser stops at the screen edge", 1e-6);
+        cev.Collect(6000, items);
+        Check(items[items.Count - 1].Harmless, "after leaveAt the imposter is harmless");
+
+        // Objects anchored to a player follow it; with no such player they are not drawn.
+        var anchored = Mini("{\"id\":\"b\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":5000,\"parent\":\"@player\",\"color\":\"@player\",\"hitbox\":false,"
+            + "\"tracks\":{\"x\":[[0,10]],\"y\":[[0,-20]]}},"
+            + "{\"id\":\"b2\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":5000,\"parent\":\"@player3\",\"hitbox\":false}");
+        var aev = new LevelEvaluator(anchored);
+        Check(anchored.Objects[0].PlayerAnchor == 1 && anchored.Objects[1].PlayerAnchor == 3, "@player and @player3 parse");
+        aev.Collect(1000, items);
+        Check(items.Count == 0, "no players: anchored objects are hidden");
+        var ap = new PlayerList();
+        ap.Players.Add(new PlayerInfo { Number = 1, Position = new Vec2(100, 50), Alive = true, Color = new Rgba(1, 1, 0) });
+        aev.Players = ap;
+        aev.Collect(1000, items);
+        Check(items.Count == 1, "only the anchor that has a player is drawn");
+        var pc = items[0].Transform.Apply(0, 0);
+        Near(pc.X, 110, "anchored x"); Near(pc.Y, 30, "anchored y");
+        Near(items[0].Color.G, 1, "@player colour is the player's"); Near(items[0].Color.B, 0, "@player colour is the player's (b)");
+
+        // A child of an imposter rides along with it.
+        var ride = Mini("{\"id\":\"i\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":5000,"
+            + "\"imposter\":{\"mode\":\"straight\",\"angle\":90,\"speed\":120,\"dashEvery\":100000},\"tracks\":{\"x\":[[0,0]],\"y\":[[0,0]]}},"
+            + "{\"id\":\"tag\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":5000,\"parent\":\"i\",\"hitbox\":false,\"tracks\":{\"x\":[[0,30]]}}");
+        var rev = new LevelEvaluator(ride);
+        Check(rev.TryWorldTransform(ride.Objects[1], 1000, out var rm), "child of an imposter resolves");
+        var rs = rev.SimAt(ride.Objects[0], 1000);
+        Near(rm.Apply(0, 0).X, rs.X + 30, "child follows the imposter (x)", 1e-6);
+        Near(rm.Apply(0, 0).Y, rs.Y, "child follows the imposter (y)", 1e-6);
+        Check(rs.Y > 100, "angle 90 moves down");
     }
 
     private static string F(double v) => v.ToString("0.######", CultureInfo.InvariantCulture);

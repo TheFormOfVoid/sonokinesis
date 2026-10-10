@@ -24,6 +24,8 @@ public partial class PalettePanel : PanelContainer
         ("star", "★  Star", "Five-pointed star"),
         ("ring", "◯  Ring", "Ring with a safe hole"),
         ("spikes", "✹  Spike ball", "Round spiky ball"),
+        ("text", "A  Text", "Words drawn with Beatform's stroke font"),
+        ("imposter", "◆  Imposter", "A copy of a player that chases the nearest one, dashing like a player"),
     };
 
     public override void _Ready()
@@ -123,6 +125,27 @@ public partial class PalettePanel : PanelContainer
             o.Track("y").Add(new EditKey { T = 0, V = Math.Round(y) });
             o.Track("w").Add(new EditKey { T = 0, V = 80 });
             o.Track("h").Add(new EditKey { T = 0, V = 80 });
+            if (o.Shape.Type == "imposter")
+            {
+                // A player-sized square that hunts players for eight seconds, then leaves.
+                o.Shape.Type = "rect";
+                o.Name = "imposter";
+                o.Warn = 1000;
+                o.End = Math.Round(o.Start + o.Warn + 9000, 3);
+                o.Outro = 0;
+                o.Imposter = new ImposterSpec { LeaveAt = 8000 };
+                o.Track("w")[0].V = 22;
+                o.Track("h")[0].V = 22;
+            }
+            if (o.Shape.Type == "text")
+            {
+                // Words are usually captions, so they start harmless and at a readable size.
+                o.Shape.Text = "TEXT";
+                o.Hitbox = false;
+                o.Warn = 0;
+                o.Track("h")[0].V = 48;
+                o.Track("w")[0].V = Math.Round(48 * Beatform.Core.StrokeFont.Width(o.Shape.Text), 2);
+            }
             S.Edit("Add " + o.Shape.Type, () => S.Doc.Objects.Add(o));
             S.Select(new[] { o.Id });
         }

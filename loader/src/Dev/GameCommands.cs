@@ -14,10 +14,18 @@ public static class GameCommands
     /// <summary>Called every frame by the dev console.</summary>
     private static readonly System.Collections.Generic.List<float> frameSamples = new();
     private static int frameWatch;
+    private static readonly System.Collections.Generic.List<string> clockSamples = new();
+    private static int clockFrames;
 
     public static void Tick()
     {
         if (frameWatch > 0) { frameWatch--; frameSamples.Add(UnityEngine.Time.unscaledDeltaTime * 1000f); }
+        if (clockFrames > 0)
+        {
+            clockFrames--;
+            var music = Runtime.GameBridge.MusicPositionMs(Runtime.GameBridge.LevelLogic());
+            clockSamples.Add($"{UnityEngine.Time.unscaledTime * 1000:0.0} {music:0.0} {Runtime.BeatformRuntime.Instance.LastSongTime:0.0}");
+        }
         if (camFrames <= 0) return;
         camFrames--;
         try
@@ -175,6 +183,14 @@ public static class GameCommands
             frameWatch = a.Length > 0 ? int.Parse(a[0]) : 120;
             return "sampling";
         };
+        DevConsole.Commands["clockprobe"] = a =>
+        {
+            // clockprobe N: record wall time, raw music time and the drawn song time for N frames.
+            clockSamples.Clear();
+            clockFrames = a.Length > 0 ? int.Parse(a[0]) : 120;
+            return "sampling clock";
+        };
+        DevConsole.Commands["clocklog"] = _ => string.Join("\n", clockSamples);
         DevConsole.Commands["frames"] = _ =>
         {
             if (frameSamples.Count == 0) return "no samples";
@@ -265,6 +281,8 @@ public static class GameCommands
                 if (circle != null) sb.Append($" circle=({circle.x:0.#},{circle.y:0.#}) r={circle.radius}");
                 sb.Append($" circles={c.circles?.length}");
                 if (hero != null && hero.lifeComponent != null) sb.Append($" hp={hero.lifeComponent.hp}/{hero.lifeComponent.maxHp} dead={hero.lifeComponent.isDead}");
+                var mp = hero?.modelPlayer;
+                if (mp != null) sb.Append($" playerId={mp.playerId} number={mp.getPlayerNumber()} color={mp.color:X8}");
                 sb.AppendLine();
             }
             return sb.ToString();

@@ -41,7 +41,8 @@ public partial class InspectorPanel : PanelContainer
     private string Signature()
     {
         var o = S.Primary;
-        if (o != null) return $"o:{o.Id}:{o.Shape.Type}:{string.Join(",", EditObject.TrackNames.Select(n => o.Track(n).Count))}:{S.Doc.Objects.Count}:{o.Color == null}";
+        if (o != null) return $"o:{o.Id}:{o.Shape.Type}:{string.Join(",", EditObject.TrackNames.Select(n => o.Track(n).Count))}:{S.Doc.Objects.Count}:{o.Color}"
+            + $":{o.Imposter?.Mode}:{o.Imposter?.StopAt >= 0}";
         if (S.SelectedEvent >= 0 && S.SelectedEvent < S.Doc.Events.Count) return $"e:{S.SelectedEvent}:{S.Doc.Events[S.SelectedEvent].Type}";
         if (S.SelectedCheckpoint >= 0) return $"c:{S.SelectedCheckpoint}:{S.Doc.Checkpoints.Count}";
         return $"m:{S.Selected.Count}:{S.Doc.Objects.Count}";
@@ -158,6 +159,27 @@ public partial class InspectorPanel : PanelContainer
 
     // ---------------- object ----------------
 
+    /// <summary>
+    /// Keeps a text object's letters in proportion. With the previous text, the width is scaled by the
+    /// change in text length (keeping any stretch the maker chose); without it, the width is set from
+    /// the height so the letters are undistorted.
+    /// </summary>
+    private static void FitTextWidth(EditObject o, string previous)
+    {
+        var w = o.Track("w");
+        if (previous != null)
+        {
+            double r = Beatform.Core.StrokeFont.Width(o.Shape.Text) / Beatform.Core.StrokeFont.Width(previous);
+            if (w.Count == 0) w.Add(new EditKey { T = 0, V = EditObject.DefaultValue("w") });
+            foreach (var k in w) k.V = Math.Round(k.V * r, 2);
+            return;
+        }
+        var h = o.Track("h");
+        double hv = h.Count > 0 ? h[0].V : EditObject.DefaultValue("h");
+        w.Clear();
+        w.Add(new EditKey { T = 0, V = Math.Round(hv * Beatform.Core.StrokeFont.Width(o.Shape.Text), 2) });
+    }
+
     private void BuildObject(EditObject o)
     {
         var title = new HBoxContainer();
@@ -169,8 +191,13 @@ public partial class InspectorPanel : PanelContainer
         Row("Name", Text(() => o.Name, v => o.Name = v, "Rename"));
 
         Section("Shape");
-        Row("Type", Options(ShapeSpec.Types, () => o.Shape.Type, v => o.Shape.Type = v, "Change shape",
-            new[] { "Rectangle", "Circle", "Polygon", "Star", "Ring", "Spike ball" }));
+        Row("Type", Options(ShapeSpec.Types, () => o.Shape.Type, v =>
+            {
+                bool toText = v == "text" && o.Shape.Type != "text";
+                o.Shape.Type = v;
+                if (toText) FitTextWidth(o, null);
+            }, "Change shape",
+            new[] { "Rectangle", "Circle", "Polygon", "Star", "Ring", "Spike ball", "Text" }));
         switch (o.Shape.Type)
         {
             case "polygon": Row("Sides", Num(() => o.Shape.Sides, v => o.Shape.Sides = (int)Math.Clamp(v, 3, 12), "Sides", 1, 3, 12)); break;
@@ -183,6 +210,14 @@ public partial class InspectorPanel : PanelContainer
                 Row("Inner", Num(() => o.Shape.Inner, v => o.Shape.Inner = Math.Clamp(v, 0.4, 0.95), "Inner radius", 0.01, 0.4, 0.95));
                 break;
             case "ring": Row("Thickness", Num(() => o.Shape.Thickness, v => o.Shape.Thickness = Math.Clamp(v, 0.02, 0.5), "Ring thickness", 0.01, 0.02, 0.5)); break;
+            case "text":
+                Row("Text", Text(() => o.Shape.Text, v => { var old = o.Shape.Text; o.Shape.Text = v; FitTextWidth(o, old); }, "Edit text"),
+                    "Letters, digits and basic punctuation. The width follows the text.");
+                Row("Weight", Num(() => o.Shape.Weight, v => o.Shape.Weight = Math.Clamp(v, 0.04, 0.4), "Text weight", 0.01, 0.04, 0.4),
+                    "Stroke thickness as a part of the letter height.");
+                Buttons(Btn("Fit width to text", () => S.Edit("Fit text", () => FitTextWidth(o, null)),
+                    "Makes the box exactly as wide as the letters need at the current height."));
+                break;
         }
 
         Section("Timing");
@@ -204,11 +239,15 @@ public partial class InspectorPanel : PanelContainer
         Row("Hitbox", Check("hurts players", () => o.Hitbox, v => o.Hitbox = v, "Toggle hitbox"));
         if (o.Hitbox) Row("Hitbox size", Num(() => o.HitboxScale, v => o.HitboxScale = Math.Max(0, v), "Hitbox size", 0.05, 0, 3, " ×"), "Multiplies the level's hitbox scale.");
         var colorRow = new HBoxContainer();
-        var useTheme = new CheckBox { Text = "theme" };
-        useTheme.SetPressedNoSignal(o.Color == null);
-        useTheme.Toggled += v => S.Edit("Color", () => o.Color = v ? null : S.Doc.Hazard);
-        colorRow.AddChild(useTheme);
-        if (o.Color != null)
+        var colorKind = new OptionButton();
+        colorKind.AddItem("theme", 0);
+        colorKind.AddItem("player", 1);
+        colorKind.AddItem("custom", 2);
+        colorKind.Selected = o.Color == null ? 0 : o.Color == "@player" ? 1 : 2;
+        colorKind.TooltipText = "Theme: the level's hazard colour. Player: the colour of the player it follows (or player 1).";
+        colorKind.ItemSelected += i => S.Edit("Color", () => o.Color = i == 0 ? null : i == 1 ? "@player" : S.Doc.Hazard);
+        colorRow.AddChild(colorKind);
+        if (o.Color != null && o.Color != "@player")
         {
             var cp = ColorField(() => o.Color, v => o.Color = v, "Color", S.Doc.Hazard);
             cp.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -217,12 +256,15 @@ public partial class InspectorPanel : PanelContainer
         Row("Color", colorRow);
         Row("Layer", Num(() => o.Layer, v => o.Layer = (int)v, "Layer", 1, -100, 100), "Higher layers draw on top.");
 
+        BuildImposter(o);
+
         Section("Parent");
         var others = S.Doc.Objects.Where(x => x.Id != o.Id && !IsDescendant(x, o)).ToList();
-        var ids = new[] { "" }.Concat(others.Select(x => x.Id)).ToArray();
-        var names = new[] { "none" }.Concat(others.Select(x => string.IsNullOrEmpty(x.Name) ? $"{x.Id} ({x.Shape.Type})" : $"{x.Name} ({x.Id})")).ToArray();
+        var ids = new[] { "", "@player", "@player2", "@player3", "@player4" }.Concat(others.Select(x => x.Id)).ToArray();
+        var names = new[] { "none", "Player 1", "Player 2", "Player 3", "Player 4" }
+            .Concat(others.Select(x => string.IsNullOrEmpty(x.Name) ? $"{x.Id} ({x.Shape.Type})" : $"{x.Name} ({x.Id})")).ToArray();
         Row("Follows", Options(ids, () => o.Parent ?? "", v => o.Parent = string.IsNullOrEmpty(v) ? null : v, "Set parent", names),
-            "A child moves and turns with its parent. Its position becomes relative to the parent.");
+            "A child moves and turns with its parent; its position becomes relative to it. Following a player keeps it next to that player (in the editor, next to the stand-in), and hides it when that player is not playing.");
         Row("Pivot X", Num(() => o.PivotX, v => o.PivotX = v, "Pivot", 0.05, -2, 2), "-0.5 is the left edge, 0 the center, 0.5 the right edge.");
         Row("Pivot Y", Num(() => o.PivotY, v => o.PivotY = v, "Pivot", 0.05, -2, 2), "-0.5 is the top edge.");
 
@@ -232,6 +274,32 @@ public partial class InspectorPanel : PanelContainer
         Section("Animation at the playhead");
         box.AddChild(UiTheme.Small("Values at the playhead. Dragging on the stage or typing here writes a key at the playhead once a track has two or more keys; with one key the whole object changes. Hold R while the song plays to record a path with the mouse."));
         foreach (var track in EditObject.TrackNames) BuildTrack(o, track);
+    }
+
+    private void BuildImposter(EditObject o)
+    {
+        Section("Moves like a player");
+        Row("Imposter", Check("cruises, dashes and leaves a trail", () => o.Imposter != null,
+            v => o.Imposter = v ? new ImposterSpec() : null, "Toggle imposter"),
+            "Instead of following its x/y keys, it starts at its position and moves like a player. Chasers hunt the nearest player (in the editor, the stand-in).");
+        var m = o.Imposter;
+        if (m == null) return;
+        Row("Mode", Options(new[] { "chase", "straight" }, () => m.Mode, v => { m.Mode = v; m.Bounds = v == "chase"; }, "Imposter mode",
+            new[] { "Chase the nearest player", "Straight line" }));
+        if (m.Mode == "straight")
+            Row("Heading", Num(() => m.Angle, v => m.Angle = v, "Heading", 1, -360, 360, "°"), "0 is right, 90 down, 180 left.");
+        Row("Speed", Num(() => m.Speed, v => m.Speed = Math.Max(0, v), "Speed", 5, 0, 5000, " /s"), "Cruising speed. A player moves at about 380.");
+        Row("Dash speed", Num(() => m.DashSpeed, v => m.DashSpeed = Math.Max(0, v), "Dash speed", 10, 0, 10000, " /s"));
+        Row("Dash every", Num(() => m.DashEvery, v => m.DashEvery = Math.Max(16, v), "Dash interval", 10, 16, 100000, " ms"), "Cruising time between dashes.");
+        Row("Dash length", Num(() => m.DashTime, v => m.DashTime = Math.Max(0, v), "Dash length", 10, 0, 10000, " ms"));
+        Row("First dash", Num(() => m.FirstDash, v => m.FirstDash = v, "First dash", 10, -1, 100000, " ms"), "Cruising time before the first dash. 0 dashes right away, -1 uses Dash every.");
+        Row("Stop at", Num(() => m.StopAt, v => m.StopAt = v, "Stop at", 10, -1, 1000000, " ms"), "After this long it brakes and waits (-1: never).");
+        if (m.StopAt >= 0) Row("Stop for", Num(() => m.StopFor, v => m.StopFor = Math.Max(0, v), "Stop for", 10, 0, 100000, " ms"));
+        Row("Leave at", Num(() => m.LeaveAt, v => m.LeaveAt = v, "Leave at", 10, -1, 1000000, " ms"), "After this long it dashes away and stops hurting (-1: never).");
+        Row("Stay on screen", Check("bounce off the edges", () => m.Bounds, v => m.Bounds = v, "Stay on screen"));
+        Row("Stretch", Num(() => m.StretchMax, v => m.StretchMax = Math.Clamp(v, 0, 2), "Stretch", 0.05, 0, 2), "How much speed stretches it.");
+        Row("Effects", Check("trail, dash rings, shadow", () => m.Effects, v => m.Effects = v, "Imposter effects"));
+        box.AddChild(UiTheme.Small("Times count from the end of its warning. Drag the dashed \"player\" square on the stage to preview chasing."));
     }
 
     private static bool IsDescendant(EditObject maybeChild, EditObject of)

@@ -24,6 +24,10 @@ internal sealed class Launcher
     private bool hard;
     private double startAtSongMs;
     private float stateTime;
+    /// <summary>Until this time, keep checking that the level really plays from startAtSongMs.</summary>
+    private float verifySeekUntil;
+    private float nextSeekAt;
+    private float inRangeSince;
 
     public bool Busy => Current != State.Idle;
 
@@ -46,6 +50,7 @@ internal sealed class Launcher
 
     public void Update()
     {
+        VerifySeek();
         float elapsed = Time.unscaledTime - stateTime;
         switch (Current)
         {
@@ -91,7 +96,10 @@ internal sealed class Launcher
                 bool ours = logic != null && CustomSession.Model != null && logic.modelSong?.id == CustomSession.Model.id;
                 if (ours && GameBridge.MusicPositionMs(logic) is double)
                 {
-                    if (startAtSongMs > 0) SeekTo(logic, startAtSongMs);
+                    // The game starts the music itself shortly after this, and a relaunch briefly leaves
+                    // the old level in place, so a single seek here can be undone: VerifySeek repeats it
+                    // until the level really plays from the start time.
+                    if (startAtSongMs > 0) { verifySeekUntil = Time.unscaledTime + 5; inRangeSince = 0; nextSeekAt = 0; }
                     Enter(State.FadeIn);
                 }
                 else if (elapsed > 20)
@@ -136,6 +144,34 @@ internal sealed class Launcher
             }
         }
         catch (Exception e) { Plugin.Logger.LogWarning("closing menus: " + e.Message); }
+    }
+
+    private void VerifySeek()
+    {
+        if (verifySeekUntil <= 0) return;
+        if (Time.unscaledTime > verifySeekUntil || loaded == null) { verifySeekUntil = 0; return; }
+        if (Time.unscaledTime < nextSeekAt) return;
+        var logic = GameBridge.LevelLogic();
+        if (!CustomSession.Active) { verifySeekUntil = 0; return; }
+        if (logic == null || logic.modelSong?.id != CustomSession.Model?.id) return;
+        if (GameBridge.IsPausedOrRewinding(logic))
+        {
+            // The game pauses a level that starts without focus; wait for it to resume.
+            verifySeekUntil = Time.unscaledTime + 5;
+            return;
+        }
+        if (GameBridge.MusicPositionMs(logic) is not double audioMs || audioMs <= 0) return;
+        double songMs = loaded.SongTime(audioMs);
+        if (songMs >= startAtSongMs - 1000 && songMs < startAtSongMs + 6000)
+        {
+            // Done once it has stayed there for a moment (a relaunch can still restart the level).
+            if (inRangeSince <= 0) inRangeSince = Time.unscaledTime;
+            else if (Time.unscaledTime - inRangeSince > 1.5f) verifySeekUntil = 0;
+            return;
+        }
+        inRangeSince = 0;
+        SeekTo(logic, startAtSongMs);
+        nextSeekAt = Time.unscaledTime + 0.25f;
     }
 
     /// <summary>Jumps the level to a song time (used by the editor's test-from-here).</summary>

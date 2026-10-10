@@ -28,7 +28,7 @@ public partial class CanvasView : Control
     private readonly List<DrawItem> items = new();
     private readonly List<Rgba> flashes = new();
 
-    private enum DragMode { None, Move, Rotate, Scale, Marquee, Pan }
+    private enum DragMode { None, Move, Rotate, Scale, Marquee, Pan, StandIn }
     private DragMode drag;
     private Vector2 dragStartMouse;
     private Vector2 dragStartGame;
@@ -123,6 +123,7 @@ public partial class CanvasView : Control
         DrawRect(screen, new Color(bg.R, bg.G, bg.B));
 
         DrawObjects();
+        DrawStandIn();
         ev.Flashes(t, flashes);
         foreach (var f in flashes) DrawRect(screen, new Color(f.R, f.G, f.B, f.A));
 
@@ -168,13 +169,29 @@ public partial class CanvasView : Control
         RenderingServer.CanvasItemAddTriangleArray(GetCanvasItem(), triIndices.ToArray(), triPoints.ToArray(), triColors.ToArray());
     }
 
+    /// <summary>The stand-in player: a dashed outline the size of a player, with a label.</summary>
+    private void DrawStandIn()
+    {
+        var c = GameToView(S.StandInPosition);
+        float h = StandInHalf * scale;
+        var col = new Color(UiTheme.Cyan, drag == DragMode.StandIn ? 0.95f : 0.6f);
+        DrawRect(new Rect2(c - new Vector2(h, h), new Vector2(h * 2, h * 2)), col, false, 1.5f);
+        DrawString(GetThemeDefaultFont(), c + new Vector2(-h, h + 13), "player", HorizontalAlignment.Left, -1, 11, col);
+    }
+
+    private const float StandInHalf = 11;
+
+    /// <summary>Where an object is drawn for selection: its world transform (imposters: their spawn point).</summary>
+    private Affine SelectionTransform(LevelObject lo, double t) =>
+        lo.Imposter == null && S.Evaluator.TryWorldTransform(lo, t, out var m) ? m : LevelEvaluator.TransformAt(lo, t);
+
     private void DrawSelection(double t)
     {
         foreach (var o in S.SelectedObjects)
         {
             var lo = Live(o);
             if (lo == null) continue;
-            var m = LevelEvaluator.TransformAt(lo, t);
+            var m = SelectionTransform(lo, t);
             bool present = LevelEvaluator.PhaseAt(lo, t) != Phase.Absent;
             var geo = ShapeGeometry.For(lo.Shape);
             var pts = geo.Outline.Select(u => GameToView(m.Apply(u))).ToList();
@@ -184,7 +201,7 @@ public partial class CanvasView : Control
             // Motion path over the object's lifetime.
             var path = new List<Vector2>();
             for (double pt = lo.Start; pt <= lo.End; pt += Math.Max(16, (lo.End - lo.Start) / 120))
-                path.Add(GameToView(LevelEvaluator.TransformAt(lo, pt).Apply(lo.PivotX, lo.PivotY)));
+                path.Add(GameToView(SelectionTransform(lo, pt).Apply(lo.PivotX, lo.PivotY)));
             if (path.Count > 1) DrawPolyline(path.ToArray(), new Color(UiTheme.Cyan, 0.35f), 1, true);
 
             if (S.Selected.Count == 1)
@@ -279,10 +296,18 @@ public partial class CanvasView : Control
         var lp = primary != null ? Live(primary) : null;
         if (lp != null)
         {
-            var m = LevelEvaluator.TransformAt(lp, t);
+            var m = SelectionTransform(lp, t);
             if (RotateHandle(m, lp).DistanceTo(mb.Position) < 9) { StartTransform(DragMode.Rotate); return; }
             foreach (var c in Corners)
                 if (GameToView(m.Apply(c.X, c.Y)).DistanceTo(mb.Position) < 8) { scaleCorner = c; StartTransform(DragMode.Scale); return; }
+        }
+
+        // Then the stand-in player, so it can be moved even over objects.
+        var sc = GameToView(S.StandInPosition);
+        if (Math.Abs(mb.Position.X - sc.X) <= StandInHalf * scale + 3 && Math.Abs(mb.Position.Y - sc.Y) <= StandInHalf * scale + 3)
+        {
+            drag = DragMode.StandIn;
+            return;
         }
 
         var hit = HitTest(mb.Position);
@@ -312,6 +337,12 @@ public partial class CanvasView : Control
     private void UpdateDrag(InputEventMouseMotion mm)
     {
         var game = ViewToGame(mm.Position);
+        if (drag == DragMode.StandIn)
+        {
+            S.StandInPosition = new Vec2(Math.Clamp(game.X, -GameW / 2, GameW / 2), Math.Clamp(game.Y, -GameH / 2, GameH / 2));
+            QueueRedraw();
+            return;
+        }
         if (!dragMoved && mm.Position.DistanceTo(dragStartMouse) < 3) return;
         if (!dragMoved && drag != DragMode.Marquee)
             S.Snapshot(drag switch { DragMode.Rotate => "Rotate", DragMode.Scale => "Resize", _ => "Move" });

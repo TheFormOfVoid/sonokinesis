@@ -191,6 +191,29 @@ public sealed class EditorState
 
     private int previewVersion = -1;
     private LevelEvaluator evaluator;
+
+    /// <summary>
+    /// The editor has no player, so imposters chase and "@player" objects follow this stand-in. It can
+    /// be dragged on the stage; it never moves on its own and nothing can hit it.
+    /// </summary>
+    public readonly PlayerList StandIn = new();
+    public Vec2 StandInPosition
+    {
+        get => StandIn.Players[0].Position;
+        set
+        {
+            var p = StandIn.Players[0];
+            p.Position = value;
+            StandIn.Players[0] = p;
+            evaluator?.ResetImposters();   // so imposters react to the new spot from their start
+        }
+    }
+
+    private void EnsureStandIn()
+    {
+        if (StandIn.Players.Count == 0)
+            StandIn.Players.Add(new PlayerInfo { Number = 1, Position = new Vec2(-300, 150), Color = LevelData.DefaultPlayerColor, Alive = true });
+    }
     public string PreviewError { get; private set; }
 
     /// <summary>
@@ -203,6 +226,7 @@ public sealed class EditorState
         {
             if (previewVersion != Version || evaluator == null)
             {
+                EnsureStandIn();
                 try
                 {
                     evaluator = new LevelEvaluator(LevelData.Parse(Doc.ToJson(false, forPreview: true)));
@@ -214,6 +238,7 @@ public sealed class EditorState
                     evaluator ??= new LevelEvaluator(LevelData.Parse(new LevelDocument().ToJson(false, forPreview: true)));
                 }
                 previewVersion = Version;
+                evaluator.Players = StandIn;
             }
             return evaluator;
         }

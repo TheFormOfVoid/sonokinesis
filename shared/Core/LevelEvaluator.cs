@@ -14,11 +14,19 @@ public struct DrawItem
     public Affine Transform;
     public Rgba Color;
     public Phase Phase;
+    /// <summary>Draw order among items of the same object (imposter effects come before the body).</summary>
+    public int Order;
+    /// <summary>Decoration that never hurts, even when its object is active (imposter trails, a leaving imposter).</summary>
+    public bool Harmless;
+    /// <summary>When set, collision uses <see cref="HitTransform"/> instead of the drawn transform.</summary>
+    public bool HasHitTransform;
+    public Affine HitTransform;
 }
 
 /// <summary>
-/// Pure evaluation of a level at a song time: what to draw, what can hurt, scene colors.
-/// Shared by the in-game loader and the editor reference tests; contains no engine code.
+/// Evaluation of a level at a song time: what to draw, what can hurt, scene colors. Keyframed
+/// objects are a pure function of song time; imposters and objects anchored to players also depend
+/// on <see cref="Players"/>. Shared by the in-game loader and the editor; contains no engine code.
 /// </summary>
 public sealed class LevelEvaluator
 {
@@ -32,6 +40,13 @@ public sealed class LevelEvaluator
     private readonly double binOrigin;
     private readonly Rgba[] backgroundStartColors;
     private readonly List<LevelEvent> backgroundEvents = new();
+    private readonly Dictionary<LevelObject, ImposterSim> sims = new();
+    private static readonly ShapeDef pulseRing = new() { Type = ShapeType.Ring, Thickness = ImposterSim.RingThickness };
+    /// <summary>Trail copies are a few units wide, so circles use a 10-sided polygon there.</summary>
+    private static readonly ShapeDef trailCircle = new() { Type = ShapeType.Polygon, Sides = 10 };
+
+    /// <summary>The players imposters chase and anchored objects follow. Null means none.</summary>
+    public IPlayerSource Players;
 
     public LevelEvaluator(LevelData level)
     {
@@ -99,6 +114,7 @@ public sealed class LevelEvaluator
         double lt = t - o.Start;
         double opacity = Math.Clamp(o.Opacity.Evaluate(lt), 0, 1);
         Rgba c = o.Color;
+        if (o.ColorFromPlayer && TryPlayer(Math.Max(1, AnchorOf(o)), out var player)) c = player.Color;
         double alpha;
         switch (phase)
         {
@@ -108,7 +124,7 @@ public sealed class LevelEvaluator
             case Phase.Active:
                 alpha = 1;
                 double since = t - o.ActiveStart;
-                if (since < ActivationFlashMs) c = Rgba.Lerp(Level.Flash, o.Color, (float)(since / ActivationFlashMs));
+                if (since < ActivationFlashMs) c = Rgba.Lerp(Level.Flash, c, (float)(since / ActivationFlashMs));
                 break;
             case Phase.Outro:
                 alpha = o.Outro > 0 ? 1 - (t - o.ActiveEnd) / o.Outro : 0;
@@ -119,6 +135,14 @@ public sealed class LevelEvaluator
         }
         c.A = (float)(c.A * Math.Clamp(alpha, 0, 1) * opacity);
         return c;
+    }
+
+    /// <summary>The player an object (or one of its parents) is anchored to, or 0.</summary>
+    public static int AnchorOf(LevelObject o)
+    {
+        for (int depth = 0; o != null && depth < MaxParentDepth; depth++, o = o.Parent)
+            if (o.PlayerAnchor > 0) return o.PlayerAnchor;
+        return 0;
     }
 
     /// <summary>Fills <paramref name="output"/> with everything visible at song time t, in draw order.</summary>
@@ -133,17 +157,141 @@ public sealed class LevelEvaluator
             var phase = PhaseAt(o, t);
             if (phase == Phase.Absent) continue;
             var color = ColorAt(o, t, phase);
+            if (o.Imposter != null) { AddImposter(o, t, phase, color, output); continue; }
             if (color.A <= 0.001f && !(phase == Phase.Active && o.Hitbox)) continue;
+            if (!TryWorldTransform(o, t, out var m)) continue;
             output.Add(new DrawItem
             {
                 Object = o,
                 Geometry = ShapeGeometry.For(o.Shape),
-                Transform = TransformAt(o, t),
+                Transform = m,
                 Color = color,
                 Phase = phase,
             });
         }
-        output.Sort((a, c) => a.Object.Layer != c.Object.Layer ? a.Object.Layer.CompareTo(c.Object.Layer) : a.Object.FileIndex.CompareTo(c.Object.FileIndex));
+        output.Sort((a, c) => a.Object.Layer != c.Object.Layer ? a.Object.Layer.CompareTo(c.Object.Layer)
+            : a.Object.FileIndex != c.Object.FileIndex ? a.Object.FileIndex.CompareTo(c.Object.FileIndex) : a.Order.CompareTo(c.Order));
+    }
+
+    /// <summary>
+    /// World transform of an ordinary object, following parents, imposters it rides on and the player
+    /// it is anchored to. False when it is anchored to a player who is not there (or is dead).
+    /// </summary>
+    public bool TryWorldTransform(LevelObject o, double t, out Affine m)
+    {
+        m = LocalTransform(o, t);
+        var cur = o;
+        for (int depth = 0; depth < MaxParentDepth; depth++)
+        {
+            if (cur.PlayerAnchor > 0)
+            {
+                if (!TryPlayer(cur.PlayerAnchor, out var player) || !player.Alive) return false;
+                m = m.Then(Affine.RotateTranslate(0, player.Position.X, player.Position.Y));
+                return true;
+            }
+            var p = cur.Parent;
+            if (p == null) return true;
+            if (p.Imposter != null)
+            {
+                // Riding on an imposter: follow its position only (not its heading or stretch).
+                var sim = SimAt(p, t);
+                m = m.Then(Affine.RotateTranslate(0, sim.X, sim.Y));
+                return true;
+            }
+            double plt = t - p.Start;
+            m = m.Then(Affine.RotateTranslate(p.Rot.Evaluate(plt), p.X.Evaluate(plt), p.Y.Evaluate(plt)));
+            cur = p;
+        }
+        return true;
+    }
+
+    private static Affine LocalTransform(LevelObject o, double t)
+    {
+        double lt = t - o.Start;
+        double x = o.X.Evaluate(lt), y = o.Y.Evaluate(lt), rot = o.Rot.Evaluate(lt);
+        double w = o.W.Evaluate(lt), h = o.H.Evaluate(lt);
+        double r = rot * Math.PI / 180, cos = Math.Cos(r), sin = Math.Sin(r);
+        double lx = -o.PivotX * w, ly = -o.PivotY * h;
+        return new Affine
+        {
+            A = cos * w,
+            B = sin * w,
+            C = -sin * h,
+            D = cos * h,
+            Tx = x + cos * lx - sin * ly,
+            Ty = y + sin * lx + cos * ly,
+        };
+    }
+
+    private bool TryPlayer(int number, out PlayerInfo player)
+    {
+        player = default;
+        var ps = Players;
+        if (ps == null) return false;
+        for (int i = 0; i < ps.Count; i++)
+        {
+            var p = ps.Get(i);
+            if (p.Number == number) { player = p; return true; }
+        }
+        return false;
+    }
+
+    /// <summary>Forgets every imposter run, so they start over (for example after the players change).</summary>
+    public void ResetImposters() => sims.Clear();
+
+    /// <summary>The imposter's simulation advanced to song time t (clamped to its lifetime).</summary>
+    public ImposterSim SimAt(LevelObject o, double t)
+    {
+        if (!sims.TryGetValue(o, out var sim)) sims[o] = sim = new ImposterSim(o);
+        sim.AdvanceTo(Math.Clamp(t - o.Start, 0, o.End - o.Start), Players);
+        return sim;
+    }
+
+    private void AddImposter(LevelObject o, double t, Phase phase, Rgba color, List<DrawItem> output)
+    {
+        var sim = SimAt(o, t);
+        double lt = t - o.Start;
+        double w = o.W.Evaluate(lt), h = o.H.Evaluate(lt);
+        // Alpha of the whole object (phase and opacity), applied to its effects too.
+        float baseA = o.Color.A > 0 ? color.A / o.Color.A : 0;
+        var shape = ShapeGeometry.For(o.Shape);
+        if (o.Imposter.Effects && phase != Phase.Warning)
+        {
+            var ring = ShapeGeometry.For(pulseRing);
+            var copy = o.Shape.Type == ShapeType.Circle ? ShapeGeometry.For(trailCircle) : shape;
+            foreach (var p in sim.Pulses)
+            {
+                double d = 2.8 * p.Scale * w;
+                var c = o.Color; c.A *= (float)(p.Alpha * 0.8) * baseA;
+                output.Add(new DrawItem { Object = o, Geometry = ring, Transform = Scaled(p.X, p.Y, 0, d, d), Color = c, Phase = phase, Order = 0, Harmless = true });
+            }
+            foreach (var p in sim.Trail)
+            {
+                double s = p.Scale * p.Life;
+                var c = o.Color; c.A *= (float)(Math.Min(1, p.Life) * 0.7) * baseA;
+                output.Add(new DrawItem { Object = o, Geometry = copy, Transform = Scaled(p.X, p.Y, p.Angle, w * s, h * s), Color = c, Phase = phase, Order = 1, Harmless = true });
+            }
+            var shadow = new Rgba(0, 0, 0, 0.3f * baseA);
+            output.Add(new DrawItem
+            {
+                Object = o, Geometry = shape, Color = shadow, Phase = phase, Order = 2, Harmless = true,
+                Transform = Scaled(sim.X + ImposterSim.ShadowOffset, sim.Y + ImposterSim.ShadowOffset, sim.DrawAngle, w * sim.StretchX, h * sim.StretchY),
+            });
+        }
+        output.Add(new DrawItem
+        {
+            Object = o, Geometry = shape, Color = color, Phase = phase, Order = 3, Harmless = !sim.Harmful,
+            Transform = Scaled(sim.X, sim.Y, sim.DrawAngle, w * sim.StretchX * sim.Grow, h * sim.StretchY * sim.Grow),
+            HasHitTransform = true,
+            HitTransform = Scaled(sim.X, sim.Y, sim.DrawAngle, w, h),
+        });
+    }
+
+    /// <summary>Unit square to world: scale to w x h, rotate by deg, move to (x, y).</summary>
+    private static Affine Scaled(double x, double y, double deg, double w, double h)
+    {
+        double r = deg * Math.PI / 180, cos = Math.Cos(r), sin = Math.Sin(r);
+        return new Affine { A = cos * w, B = sin * w, C = -sin * h, D = cos * h, Tx = x, Ty = y };
     }
 
     private Vec2[] outlineBuf = new Vec2[64], holeBuf = new Vec2[64];
@@ -151,27 +299,35 @@ public sealed class LevelEvaluator
     /// <summary>True if a player circle overlaps any active hitbox in <paramref name="items"/>.</summary>
     public bool Hits(List<DrawItem> items, Vec2 center, double radius, out LevelObject hitBy)
     {
-        hitBy = null;
+        bool hit = FirstHit(items, center, radius, out DrawItem item);
+        hitBy = hit ? item.Object : null;
+        return hit;
+    }
+
+    /// <summary>Like <see cref="Hits"/>, but returns the item that hit (its hit transform gives where it is).</summary>
+    public bool FirstHit(List<DrawItem> items, Vec2 center, double radius, out DrawItem hitItem)
+    {
+        hitItem = default;
         foreach (var it in items)
         {
-            if (it.Phase != Phase.Active || !it.Object.Hitbox) continue;
+            if (it.Phase != Phase.Active || !it.Object.Hitbox || it.Harmless) continue;
             double s = Level.HitboxScale * it.Object.HitboxScale;
             if (s <= 0) continue;
             var g = it.Geometry;
             // Broad phase: the shape lies within the unit square's circumcircle around its center.
-            var m = it.Transform;
+            var m = it.HasHitTransform ? it.HitTransform : it.Transform;
             double cx = m.Tx, cy = m.Ty;
             double reach = 0.7072 * s * (Math.Sqrt(m.A * m.A + m.B * m.B) + Math.Sqrt(m.C * m.C + m.D * m.D));
             double dx = center.X - cx, dy = center.Y - cy;
             if (dx * dx + dy * dy > (reach + radius) * (reach + radius)) continue;
-            var outline = ToWorld(g.Outline, it.Transform, s, ref outlineBuf);
+            var outline = ToWorld(g.Outline, m, s, ref outlineBuf);
             if (!Collision.CircleOverlapsPolygon(center, radius, outline, g.Outline.Length)) continue;
             if (g.Hole != null)
             {
-                var hole = ToWorld(g.Hole, it.Transform, s, ref holeBuf);
+                var hole = ToWorld(g.Hole, m, s, ref holeBuf);
                 if (Collision.CircleInsidePolygon(center, radius, hole, g.Hole.Length)) continue;
             }
-            hitBy = it.Object;
+            hitItem = it;
             return true;
         }
         return false;

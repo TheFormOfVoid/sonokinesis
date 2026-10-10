@@ -34,6 +34,11 @@ Open `Beatform Editor`. Click **New**, pick a song (`.ogg`, `.mp3` or `.wav`) an
   playhead adds a keyframe there, so you animate by scrubbing and moving.
 - The timeline shows the song waveform, the beat grid, checkpoints, scene events and every object.
   Drag bars to move them in time and drag their edges to change their length.
+- **Imposters** move like a player: they cruise, dash, stretch and leave a trail, and chasers hunt
+  the nearest player. Turn any object into one under *Moves like a player*, or drag in an Imposter.
+- Objects can **follow a player** (Follows → Player 1–4), for speech bubbles and other things that
+  stay next to a player. The dashed "player" square on the stage stands in for the player; drag it
+  to preview chasers and followers.
 - **Space** previews the level with its song. The editor has no player: levels are played in the
   game, so it cannot be used to play anything without owning the game.
 - **Test in game** (F5) starts the level in the running game from the playhead.

@@ -26,10 +26,34 @@ public sealed class ShapeSpec
     public int Spikes = 12;
     public double Inner = 0.5;
     public double Thickness = 0.12;
+    public string Text = "TEXT";
+    public double Weight = 0.14;
 
     public ShapeSpec Clone() => (ShapeSpec)MemberwiseClone();
 
-    public static readonly string[] Types = { "rect", "circle", "polygon", "star", "ring", "spikes" };
+    public static readonly string[] Types = { "rect", "circle", "polygon", "star", "ring", "spikes", "text" };
+}
+
+/// <summary>Player-like movement of an imposter (see the level format). Defaults match the loader's.</summary>
+public sealed class ImposterSpec
+{
+    public string Mode = "chase";
+    public double Angle = 180;
+    public double Speed = 383;
+    public double DashSpeed = 1467;
+    public double DashDrag = 0.9;
+    public double DashTime = 450;
+    public double DashEvery = 550;
+    public double FirstDash = -1;
+    public double StopAt = -1;
+    public double StopFor = 0;
+    public double LeaveAt = -1;
+    public bool Bounds = true;
+    public double StretchSpeed = 2000;
+    public double StretchMax = 0.4;
+    public bool Effects = true;
+
+    public ImposterSpec Clone() => (ImposterSpec)MemberwiseClone();
 }
 
 public sealed class EditObject
@@ -47,6 +71,8 @@ public sealed class EditObject
     public int Layer;
     public string Parent;
     public double PivotX, PivotY;
+    /// <summary>Null for ordinary objects.</summary>
+    public ImposterSpec Imposter;
     public Dictionary<string, List<EditKey>> Tracks = new();
     /// <summary>Editor-only: objects made by one pattern share a group id.</summary>
     public string Group;
@@ -64,6 +90,7 @@ public sealed class EditObject
         var o = (EditObject)MemberwiseClone();
         o.Id = newId;
         o.Shape = Shape.Clone();
+        o.Imposter = Imposter?.Clone();
         o.Tracks = new Dictionary<string, List<EditKey>>();
         foreach (var kv in Tracks) o.Tracks[kv.Key] = kv.Value.Select(k => k.Clone()).ToList();
         return o;
@@ -146,7 +173,7 @@ public sealed class LevelDocument
         {
             w.WriteStartObject();
             w.WriteString("format", "beatform.level");
-            w.WriteNumber("formatVersion", 1);
+            w.WriteNumber("formatVersion", 2);
 
             w.WriteStartObject("meta");
             w.WriteString("id", forPreview && string.IsNullOrEmpty(Id) ? "preview" : Id);
@@ -211,6 +238,7 @@ public sealed class LevelDocument
             case "star": w.WriteNumber("points", o.Shape.Points); Num(w, "inner", o.Shape.Inner); break;
             case "spikes": w.WriteNumber("spikes", o.Shape.Spikes); Num(w, "inner", o.Shape.Inner); break;
             case "ring": Num(w, "thickness", o.Shape.Thickness); break;
+            case "text": w.WriteString("text", o.Shape.Text ?? ""); Num(w, "weight", o.Shape.Weight); break;
         }
         w.WriteEndObject();
         Num(w, "start", o.Start);
@@ -222,6 +250,26 @@ public sealed class LevelDocument
         if (!string.IsNullOrEmpty(o.Color)) w.WriteString("color", o.Color);
         if (o.Layer != 0) w.WriteNumber("layer", o.Layer);
         if (!string.IsNullOrEmpty(o.Parent)) w.WriteString("parent", o.Parent);
+        if (o.Imposter != null)
+        {
+            var m = o.Imposter;
+            w.WriteStartObject("imposter");
+            w.WriteString("mode", m.Mode);
+            Num(w, "angle", m.Angle);
+            Num(w, "speed", m.Speed);
+            Num(w, "dashSpeed", m.DashSpeed);
+            Num(w, "dashDrag", m.DashDrag);
+            Num(w, "dashTime", m.DashTime);
+            Num(w, "dashEvery", m.DashEvery);
+            if (m.FirstDash >= 0) Num(w, "firstDash", m.FirstDash);
+            if (m.StopAt >= 0) { Num(w, "stopAt", m.StopAt); Num(w, "stopFor", m.StopFor); }
+            if (m.LeaveAt >= 0) Num(w, "leaveAt", m.LeaveAt);
+            w.WriteBoolean("bounds", m.Bounds);
+            Num(w, "stretchSpeed", m.StretchSpeed);
+            Num(w, "stretchMax", m.StretchMax);
+            if (!m.Effects) w.WriteBoolean("effects", false);
+            w.WriteEndObject();
+        }
         if (o.PivotX != 0 || o.PivotY != 0)
         {
             w.WriteStartArray("pivot");
@@ -337,6 +385,25 @@ public sealed class LevelDocument
                     Parent = (string)o["parent"],
                 };
                 if (o["pivot"] is JsonArray pv && pv.Count >= 2) { eo.PivotX = D(pv[0], 0); eo.PivotY = D(pv[1], 0); }
+                if (o["imposter"] is JsonObject im)
+                {
+                    var m = new ImposterSpec { Mode = (string)im["mode"] == "straight" ? "straight" : "chase" };
+                    m.Angle = D(im["angle"], m.Angle);
+                    m.Speed = D(im["speed"], m.Speed);
+                    m.DashSpeed = D(im["dashSpeed"], m.DashSpeed);
+                    m.DashDrag = D(im["dashDrag"], m.DashDrag);
+                    m.DashTime = D(im["dashTime"], m.DashTime);
+                    m.DashEvery = D(im["dashEvery"], m.DashEvery);
+                    m.FirstDash = D(im["firstDash"], m.FirstDash);
+                    m.StopAt = D(im["stopAt"], m.StopAt);
+                    m.StopFor = D(im["stopFor"], m.StopFor);
+                    m.LeaveAt = D(im["leaveAt"], m.LeaveAt);
+                    m.Bounds = im["bounds"] is JsonValue bv ? bv.GetValue<bool>() : m.Mode == "chase";
+                    m.StretchSpeed = D(im["stretchSpeed"], m.StretchSpeed);
+                    m.StretchMax = D(im["stretchMax"], m.StretchMax);
+                    m.Effects = im["effects"] is JsonValue ev ? ev.GetValue<bool>() : true;
+                    eo.Imposter = m;
+                }
                 if (o["shape"] is JsonObject sh)
                 {
                     eo.Shape.Type = (string)sh["type"] ?? "rect";
@@ -345,6 +412,8 @@ public sealed class LevelDocument
                     eo.Shape.Spikes = (int)D(sh["spikes"], 12);
                     eo.Shape.Inner = D(sh["inner"], eo.Shape.Type == "spikes" ? 0.75 : 0.5);
                     eo.Shape.Thickness = D(sh["thickness"], 0.12);
+                    eo.Shape.Text = (string)sh["text"] ?? "";
+                    eo.Shape.Weight = D(sh["weight"], 0.14);
                 }
                 if (o["tracks"] is JsonObject tr)
                 {
