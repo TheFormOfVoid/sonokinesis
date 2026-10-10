@@ -57,7 +57,11 @@ internal sealed class LevelMenu
     {
         if (!Open)
         {
-            if (Input.GetKeyDown(Settings.MenuKey) && GameBridge.InMenu() && !launcher.Busy && !CustomSession.Active) Show();
+            if (Input.GetKeyDown(Settings.MenuKey) && GameBridge.InMenu() && !launcher.Busy && !CustomSession.Active)
+            {
+                if (GameBridge.InOnlineMode()) { onlineNoticeUntil = Time.unscaledTime + 4; return; }
+                Show();
+            }
             return;
         }
         if (launcher.Busy) return;
@@ -70,6 +74,16 @@ internal sealed class LevelMenu
         if (Input.GetKeyDown(KeyCode.H) || Input.GetKeyDown(KeyCode.Tab)) hard = !hard;
         if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.JoystickButton0))
             Play(entries);
+    }
+
+    /// <summary>Plays the entry at an index, as if chosen in the list (used by the dev console).</summary>
+    public void PlayIndex(int index, bool hardMode)
+    {
+        var entries = LevelLibrary.Entries;
+        if (entries == null || index < 0 || index >= entries.Count) return;
+        selected = index;
+        hard = hardMode;
+        Play(entries);
     }
 
     private void Play(List<LevelEntry> entries)
@@ -230,6 +244,7 @@ internal sealed class LevelMenu
         string msg = null;
         Color col = Text;
         if (launcher.Current == Launcher.State.Loading) msg = $"Loading {launcher.LoadingTitle}…";
+        else if (Time.unscaledTime < onlineNoticeUntil) { msg = "Custom levels are for solo and local co-op. Leave online play to use them."; col = Bad; }
         else if (launcher.Error != null && launcher.Current == Launcher.State.Idle && Time.unscaledTime - errorShownAt < 8) { msg = "Could not start level: " + launcher.Error; col = Bad; }
         if (launcher.Error != null && launcher.Error != lastError) { lastError = launcher.Error; errorShownAt = Time.unscaledTime; }
         if (msg == null) return;
@@ -238,6 +253,7 @@ internal sealed class LevelMenu
         Label(Inset(r, 16 * s), msg, Style("status", 24, col, wrap: true));
     }
 
+    private float onlineNoticeUntil;
     private string lastError;
     private float errorShownAt = -100;
 

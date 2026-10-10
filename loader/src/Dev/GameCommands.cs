@@ -12,8 +12,12 @@ public static class GameCommands
     private static int camFrames;
 
     /// <summary>Called every frame by the dev console.</summary>
+    private static readonly System.Collections.Generic.List<float> frameSamples = new();
+    private static int frameWatch;
+
     public static void Tick()
     {
+        if (frameWatch > 0) { frameWatch--; frameSamples.Add(UnityEngine.Time.unscaledDeltaTime * 1000f); }
         if (camFrames <= 0) return;
         camFrames--;
         try
@@ -150,6 +154,47 @@ public static class GameCommands
             if (a.Length > 0 && a[0] == "off") m.Hide(); else m.Show();
             return "menu open " + m.Open;
         };
+
+        DevConsole.Commands["menuplay"] = a =>
+        {
+            var m = Runtime.BeatformRuntime.Instance.Menu;
+            if (!m.Open) m.Show();
+            if (Runtime.LevelLibrary.Entries == null) return "still scanning, try again";
+            m.PlayIndex(int.Parse(a[0]), a.Length > 1 && a[1] == "hard");
+            return "menu play " + a[0];
+        };
+        DevConsole.Commands["levels"] = _ =>
+        {
+            var e = Runtime.LevelLibrary.Entries;
+            if (e == null) return "scanning";
+            return string.Join("\n", e.Select((x, i) => $"{i}: {x.Meta.Title} valid={x.IsValid} {x.Error}"));
+        };
+        DevConsole.Commands["frametime"] = a =>
+        {
+            frameSamples.Clear();
+            frameWatch = a.Length > 0 ? int.Parse(a[0]) : 120;
+            return "sampling";
+        };
+        DevConsole.Commands["frames"] = _ =>
+        {
+            if (frameSamples.Count == 0) return "no samples";
+            var sorted = frameSamples.OrderBy(x => x).ToList();
+            return $"n={sorted.Count} avg={sorted.Average():0.00}ms p50={sorted[sorted.Count / 2]:0.00}ms p95={sorted[(int)(sorted.Count * 0.95)]:0.00}ms max={sorted.Last():0.00}ms";
+        };
+
+        DevConsole.Commands["meshinfo"] = _ =>
+        {
+            var sb = new StringBuilder();
+            foreach (var mf in UnityEngine.Object.FindObjectsOfType<UnityEngine.MeshFilter>())
+            {
+                if (!mf.gameObject.name.StartsWith("Beatform")) continue;
+                var m = mf.sharedMesh;
+                sb.AppendLine($"{mf.gameObject.name}: verts={m.vertexCount} indexFormat={m.indexFormat} subMeshes={m.subMeshCount} indices={m.GetIndexCount(0)} active={mf.gameObject.activeInHierarchy}");
+            }
+            return sb.ToString();
+        };
+
+        DevConsole.Commands["profile"] = _ => Runtime.BeatformRuntime.Profile.Report();
 
         DevConsole.Commands["sandbox"] = _ =>
         {

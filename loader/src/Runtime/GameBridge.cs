@@ -114,7 +114,8 @@ internal static class GameBridge
         catch { }
     }
 
-    private static float lastHeroZ = -0.05f;
+    // Until a player sprite has been seen, sit just in front of the background.
+    private static float lastHeroZ = -0.015f;
 
     /// <summary>
     /// Depth of the front-most player sprite. The game assigns sprite depth in draw order, and its own
@@ -180,6 +181,13 @@ internal static class GameBridge
     }
 
     public static bool InMainMenu() => FindUi<UI_MainMenu02>() != null;
+
+    /// <summary>True while the game is in an online mode; custom levels are solo and local co-op only.</summary>
+    public static bool InOnlineMode()
+    {
+        try { return MetaGameProgress.instance?.modelTypeOfGame?.isOnline() == true; }
+        catch { return false; }
+    }
 
     /// <summary>True on the main menu or the playlist screen: places where a level may be started.</summary>
     public static bool InMenu() => InMainMenu() || FindUi<UI_Practice>() != null;

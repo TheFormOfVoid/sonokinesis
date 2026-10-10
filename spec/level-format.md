@@ -80,6 +80,9 @@ Sorted song times in ms. The first entry must be `0`. When every player dies the
 music to the last checkpoint reached; Beatform's drawing and collision are pure functions of song
 time, so they rewind with it automatically.
 
+The game finishes a level when its last checkpoint is completed, so the loader adds one more
+checkpoint at the level end (`meta.lengthMs`, or the end of the audio) and cuts the audio there.
+
 ## Objects
 
 An object is one shape with an animated transform. Everything a level does is built from objects.
@@ -195,7 +198,7 @@ Unknown names behave as `linear`.
 
 Every shape is defined on a unit square from `-0.5` to `0.5` on both axes and then stretched to
 `w × h`. The outline points below are that unit-space outline; the loader and the editor draw the
-same polygons. Circles use 48 segments.
+same polygons. Circles use 48 segments, the first one at angle 0 (pointing to `+x`).
 
 | `type` | options | outline |
 |---|---|---|
@@ -237,7 +240,7 @@ Then the alpha is multiplied by `opacity`. Higher `layer` draws later; equal lay
 
 ### Collision
 
-A player is a circle (the game's own player hitbox). During its active phase an object with
+A player is a circle (the game's own player hitbox, radius 8). During its active phase an object with
 `hitbox: true` hurts a player whose circle overlaps the object's shape scaled by
 `settings.hitboxScale · hitboxScale` around the object's own center (unit point `(0, 0)` after
 transform). For `ring` only the band between the two circles counts.

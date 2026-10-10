@@ -96,8 +96,11 @@ public class BeatformRuntime : MonoBehaviour
 
         GameBridge.HideGameBackground();
         if (!renderer.Visible) renderer.SetVisible(true);
+        long t0 = Settings.DevConsole ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         float heroZ = GameBridge.FrontHeroZ();
+        long t1 = Settings.DevConsole ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         var items = renderer.Draw(level.Evaluator, t, GameBridge.GameplayLayerMatrix(), heroZ - 0.004f);
+        long t2 = Settings.DevConsole ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
 
         bool frozen = GameBridge.IsPausedOrRewinding(logic);
         if (!frozen)
@@ -110,6 +113,11 @@ public class BeatformRuntime : MonoBehaviour
                 GameBridge.HitHero(h, (float)c.X, (float)c.Y);
             }
             RunShakes(level.Data, t);
+        }
+        if (Settings.DevConsole)
+        {
+            double ms = 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            Profile.Add((t1 - t0) * ms, (t2 - t1) * ms, (System.Diagnostics.Stopwatch.GetTimestamp() - t2) * ms);
         }
         lastSongTime = t;
     }
@@ -136,6 +144,21 @@ public class BeatformRuntime : MonoBehaviour
             if (p >= 1) { activeShakes.RemoveAt(i); continue; }
             int force = (int)Math.Round(e.Intensity * (1 - p));
             if (force > 0) GameBridge.CameraKick((float)(shakeRandom.NextDouble() * 360), force);
+        }
+    }
+
+    /// <summary>Rolling cost of the loader's per-frame work, for the dev console.</summary>
+    internal static class Profile
+    {
+        private static double hero, draw, hits;
+        private static int n;
+        public static void Add(double h, double d, double c) { hero += h; draw += d; hits += c; n++; }
+        public static string Report()
+        {
+            if (n == 0) return "no frames";
+            var r = $"frames={n} hero={hero / n:0.000}ms draw={draw / n:0.000}ms hits+events={hits / n:0.000}ms";
+            hero = draw = hits = 0; n = 0;
+            return r;
         }
     }
 

@@ -40,6 +40,13 @@ internal static class EditorBridge
             return;
         }
 
+        if (GameBridge.InOnlineMode())
+        {
+            Status("error", "the game is in online play; custom levels are solo and local co-op only");
+            pending = null;
+            return;
+        }
+
         // Get to the main menu first: leave a running level, or skip the title screen.
         var logic = GameBridge.LevelLogic();
         if (logic != null)

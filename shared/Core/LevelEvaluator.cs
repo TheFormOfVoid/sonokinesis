@@ -158,6 +158,12 @@ public sealed class LevelEvaluator
             double s = Level.HitboxScale * it.Object.HitboxScale;
             if (s <= 0) continue;
             var g = it.Geometry;
+            // Broad phase: the shape lies within the unit square's circumcircle around its center.
+            var m = it.Transform;
+            double cx = m.Tx, cy = m.Ty;
+            double reach = 0.7072 * s * (Math.Sqrt(m.A * m.A + m.B * m.B) + Math.Sqrt(m.C * m.C + m.D * m.D));
+            double dx = center.X - cx, dy = center.Y - cy;
+            if (dx * dx + dy * dy > (reach + radius) * (reach + radius)) continue;
             var outline = ToWorld(g.Outline, it.Transform, s, ref outlineBuf);
             if (!Collision.CircleOverlapsPolygon(center, radius, outline, g.Outline.Length)) continue;
             if (g.Hole != null)

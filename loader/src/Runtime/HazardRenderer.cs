@@ -53,29 +53,30 @@ internal sealed class HazardRenderer
         float zoom = Mathf.Sqrt(camera.m00 * camera.m00 + camera.m10 * camera.m10);
         if (zoom <= 0.0001f) zoom = 1;
 
-        // Background: a solid quad far behind everything, not affected by camera shake.
-        background.Begin();
-        background.AddQuad(0, 0, FullScreenW, FullScreenH, ToColor32(ev.BackgroundAt(t)));
-        background.End(new Vector3(0, 0, BackgroundZ), 1);
+        DrawBackground(ev, t);
 
-        hazards.Begin();
+        int vCount = 0, iCount = 0;
+        foreach (var it in items) { vCount += it.Geometry.Vertices.Length; iCount += it.Geometry.Indices.Length; }
+        hazards.Begin(vCount, iCount);
         foreach (var it in items)
         {
             var g = it.Geometry;
             var c = ToColor32(it.Color);
             int baseIndex = hazards.VertexCount;
             var m = it.Transform;
-            foreach (var u in g.Vertices)
+            var verts = g.Vertices;
+            for (int k = 0; k < verts.Length; k++)
             {
-                var p = m.Apply(u);
-                hazards.AddVertex((float)p.X, (float)-p.Y, c);
+                var u = verts[k];
+                hazards.AddVertex((float)(m.A * u.X + m.C * u.Y + m.Tx), (float)-(m.B * u.X + m.D * u.Y + m.Ty), c);
             }
-            foreach (var i in g.Indices) hazards.AddIndex(baseIndex + i);
+            var idx = g.Indices;
+            for (int k = 0; k < idx.Length; k++) hazards.AddIndex(baseIndex + idx[k]);
         }
         hazards.End(new Vector3(camX, camY, hazardZ), zoom);
 
-        overlay.Begin();
         ev.Flashes(t, flashes);
+        overlay.Begin(flashes.Count * 4, flashes.Count * 6);
         foreach (var f in flashes) overlay.AddQuad(0, 0, FullScreenW, FullScreenH, ToColor32(f));
         overlay.End(new Vector3(0, 0, hazardZ - 0.003f), 1);
         return items;
@@ -84,14 +85,19 @@ internal sealed class HazardRenderer
     /// <summary>Shows only the background (at the last song time); hazards and flashes are cleared.</summary>
     public void DrawBackgroundOnly(LevelEvaluator ev, double t)
     {
-        if (double.IsNaN(t)) t = 0;
-        background.Begin();
+        DrawBackground(ev, double.IsNaN(t) ? 0 : t);
+        hazards.Begin(0, 0);
+        hazards.End(Vector3.zero, 1);
+        overlay.Begin(0, 0);
+        overlay.End(Vector3.zero, 1);
+    }
+
+    private void DrawBackground(LevelEvaluator ev, double t)
+    {
+        // A solid quad far behind everything, not affected by camera shake.
+        background.Begin(4, 6);
         background.AddQuad(0, 0, FullScreenW, FullScreenH, ToColor32(ev.BackgroundAt(t)));
         background.End(new Vector3(0, 0, BackgroundZ), 1);
-        hazards.Begin();
-        hazards.End(Vector3.zero, 1);
-        overlay.Begin();
-        overlay.End(Vector3.zero, 1);
     }
 
     private static Color32 ToColor32(Rgba c) =>
@@ -105,10 +111,11 @@ internal sealed class HazardRenderer
     }
 
     /// <summary>
-    /// A mesh rebuilt every frame. Buffers have a fixed capacity that only grows; unused triangles are
+    /// A mesh rebuilt every frame, written straight into Unity's buffers. Buffers have a capacity that
+    /// only grows (index capacity stays a multiple of 3, as Unity requires); unused triangles are
     /// collapsed to a point, so only the plain vertices/colors32/triangles setters are needed.
     /// </summary>
-    private sealed class DynamicMesh
+    private sealed unsafe class DynamicMesh
     {
         private readonly string name;
         private readonly Transform host;
@@ -117,11 +124,16 @@ internal sealed class HazardRenderer
         private Il2CppStructArray<Vector3> verts;
         private Il2CppStructArray<Color32> colors;
         private Il2CppStructArray<int> tris;
+        // Raw element pointers: indexer access through the interop layer is far too slow for a mesh
+        // rebuilt every frame. The il2cpp heap does not move objects, so these stay valid.
+        private Vector3* vPtr;
+        private Color32* cPtr;
+        private int* iPtr;
         private int capacityV, capacityI;
         private int lastUsedI;
         private bool active;
-        public int VertexCount { get; private set; }
         private int indexCount;
+        public int VertexCount { get; private set; }
 
         public DynamicMesh(string name, Transform host)
         {
@@ -130,9 +142,7 @@ internal sealed class HazardRenderer
             EnsureAlive();
         }
 
-        /// <summary>
-        /// The game destroys scene objects during some transitions; rebuild ours if that happened.
-        /// </summary>
+        /// <summary>The game destroys scene objects during some transitions; rebuild ours if that happened.</summary>
         private void EnsureAlive()
         {
             if (go != null && mesh != null) return;
@@ -144,8 +154,7 @@ internal sealed class HazardRenderer
             mesh.MarkDynamic();
             mf.mesh = mesh;
             var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Hidden/Internal-Colored");
-            var mat = new Material(shader);
-            mat.renderQueue = 3000;
+            var mat = new Material(shader) { renderQueue = 3000 };
             mr.material = mat;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mr.receiveShadows = false;
@@ -163,41 +172,46 @@ internal sealed class HazardRenderer
         private void Allocate(int v, int i)
         {
             capacityV = v;
-            capacityI = i;
-            verts = new Il2CppStructArray<Vector3>(v);
-            colors = new Il2CppStructArray<Color32>(v);
-            tris = new Il2CppStructArray<int>(i);
+            capacityI = (i + 2) / 3 * 3;
+            verts = new Il2CppStructArray<Vector3>(capacityV);
+            colors = new Il2CppStructArray<Color32>(capacityV);
+            tris = new Il2CppStructArray<int>(capacityI);
+            vPtr = (Vector3*)Elements(verts);
+            cPtr = (Color32*)Elements(colors);
+            iPtr = (int*)Elements(tris);
             mesh.Clear();
-            mesh.indexFormat = v > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
+            mesh.indexFormat = capacityV > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
             lastUsedI = capacityI;
         }
 
-        // Geometry is first collected in managed lists so capacity can be checked before copying.
-        private readonly List<Vector3> pendingV = new();
-        private readonly List<Color32> pendingC = new();
-        private readonly List<int> pendingI = new();
+        /// <summary>First element of an il2cpp array: after its header of four pointer-sized fields.</summary>
+        private static byte* Elements(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase array) =>
+            (byte*)array.Pointer + 4 * IntPtr.Size;
 
-        public void Begin()
+        private static int Grow(int current, int needed)
         {
-            pendingV.Clear();
-            pendingC.Clear();
-            pendingI.Clear();
+            int c = Math.Max(1, current);
+            while (c < needed) c *= 2;
+            return c;
+        }
+
+        /// <summary>Starts a frame that will add at most <paramref name="vCount"/> vertices and <paramref name="iCount"/> indices.</summary>
+        public void Begin(int vCount, int iCount)
+        {
+            EnsureAlive();
+            if (vCount > capacityV || iCount > capacityI) Allocate(Grow(capacityV, vCount), Grow(capacityI, iCount));
             VertexCount = 0;
             indexCount = 0;
         }
 
         public void AddVertex(float x, float y, Color32 c)
         {
-            pendingV.Add(new Vector3(x, y, 0));
-            pendingC.Add(c);
+            vPtr[VertexCount] = new Vector3(x, y, 0);
+            cPtr[VertexCount] = c;
             VertexCount++;
         }
 
-        public void AddIndex(int i)
-        {
-            pendingI.Add(i);
-            indexCount++;
-        }
+        public void AddIndex(int i) => iPtr[indexCount++] = i;
 
         public void AddQuad(float cx, float cy, float w, float h, Color32 c)
         {
@@ -212,20 +226,10 @@ internal sealed class HazardRenderer
 
         public void End(Vector3 position, float scale)
         {
-            EnsureAlive();
-            if (pendingV.Count > capacityV || pendingI.Count > capacityI)
-                Allocate(Math.Max(capacityV * 2, NextPow2(pendingV.Count)), Math.Max(capacityI * 2, NextPow2(pendingI.Count)));
-
-            for (int i = 0; i < pendingV.Count; i++)
-            {
-                verts[i] = pendingV[i];
-                colors[i] = pendingC[i];
-            }
-            for (int i = 0; i < pendingI.Count; i++) tris[i] = pendingI[i];
-            // Collapse the rest of the index buffer that was used last frame.
+            // Collapse whatever part of the index buffer was used last frame but not this one.
             int clearTo = Math.Min(lastUsedI, capacityI);
-            for (int i = pendingI.Count; i < clearTo; i++) tris[i] = 0;
-            lastUsedI = pendingI.Count;
+            for (int i = indexCount; i < clearTo; i++) iPtr[i] = 0;
+            lastUsedI = indexCount;
 
             mesh.vertices = verts;
             mesh.colors32 = colors;
@@ -234,13 +238,6 @@ internal sealed class HazardRenderer
 
             go.transform.position = position;
             go.transform.localScale = new Vector3(scale, scale, 1);
-        }
-
-        private static int NextPow2(int v)
-        {
-            int p = 1;
-            while (p < v) p <<= 1;
-            return p;
         }
 
         public void Destroy() { if (go != null) UnityEngine.Object.Destroy(go); }
