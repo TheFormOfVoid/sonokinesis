@@ -48,8 +48,12 @@ public partial class TimelineView : Control
         S.DocReplaced += () => { scrollMs = -500; laneScroll = 0; QueueRedraw(); };
     }
 
+    private Waveform drawnWaveform;
+
     public override void _Process(double delta)
     {
+        // The song is decoded in the background; redraw once its waveform is ready.
+        if (song?.Waveform != drawnWaveform) { drawnWaveform = song?.Waveform; QueueRedraw(); }
         if (S.Playing)
         {
             // Keep the playhead in view while playing.

@@ -226,8 +226,11 @@ public partial class InspectorPanel : PanelContainer
         Row("Pivot X", Num(() => o.PivotX, v => o.PivotX = v, "Pivot", 0.05, -2, 2), "-0.5 is the left edge, 0 the center, 0.5 the right edge.");
         Row("Pivot Y", Num(() => o.PivotY, v => o.PivotY = v, "Pivot", 0.05, -2, 2), "-0.5 is the top edge.");
 
+        Buttons(Btn("Repeat…", () => ToolDialogs.ShowRepeat(App.Instance), "Add copies shifted in time, position, rotation or around a point."),
+            Btn("Duplicate", () => App.Instance.DuplicateSelection()));
+
         Section("Animation at the playhead");
-        box.AddChild(UiTheme.Small("Values at the playhead. Dragging on the stage or typing here writes a key at the playhead once a track has two or more keys; with one key the whole object changes."));
+        box.AddChild(UiTheme.Small("Values at the playhead. Dragging on the stage or typing here writes a key at the playhead once a track has two or more keys; with one key the whole object changes. Hold R while the song plays to record a path with the mouse."));
         foreach (var track in EditObject.TrackNames) BuildTrack(o, track);
     }
 
@@ -315,6 +318,7 @@ public partial class InspectorPanel : PanelContainer
         Section("Actions");
         Buttons(Btn("Duplicate (Ctrl+D)", () => App.Instance.DuplicateSelection()), Btn("Delete (Del)", () => App.Instance.DeleteSelection()));
         Buttons(Btn("Mirror horizontally", () => App.Instance.Mirror(true)), Btn("Mirror vertically", () => App.Instance.Mirror(false)));
+        Buttons(Btn("Repeat…", () => ToolDialogs.ShowRepeat(App.Instance)), Btn("Stretch time…", () => ToolDialogs.ShowStretch(App.Instance)));
     }
 
     private void BuildEvent(EditEvent e)

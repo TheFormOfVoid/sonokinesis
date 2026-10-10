@@ -49,10 +49,51 @@ public partial class CanvasView : Control
         S.DocReplaced += QueueRedraw;
     }
 
+    private bool recording;
+    private double lastRecordLt;
+
     public override void _Process(double delta)
     {
         if (Playtest.Active) Playtest.Step(delta, items);
+        else Record();
         if (S.Playing || Playtest.Active || drag != DragMode.None) QueueRedraw();
+    }
+
+    /// <summary>
+    /// Record path: while the song plays and R is held over the stage, the selected object follows the
+    /// mouse and keys are written about every 40 ms, replacing older keys in the recorded span.
+    /// </summary>
+    private void Record()
+    {
+        var o = S.Primary;
+        bool want = o != null && S.Playing && Input.IsKeyPressed(Key.R) && GetGlobalRect().HasPoint(GetGlobalMousePosition()) && string.IsNullOrEmpty(o.Parent);
+        if (!want)
+        {
+            if (recording) { recording = false; App.Instance.Status("Path recorded."); }
+            return;
+        }
+        double lt = S.Playhead - o.Start;
+        if (lt < 0 || lt > o.Duration) return;
+        if (!recording)
+        {
+            recording = true;
+            lastRecordLt = lt;
+            S.Snapshot("Record path");
+            foreach (var t in new[] { "x", "y" }) CanvasView.AddKeyAt(o, t, lt);
+            App.Instance.Status("Recording the path… release R to stop.");
+            return;
+        }
+        if (lt - lastRecordLt < 40) return;
+        var g = ViewToGame(GetLocalMousePosition());
+        foreach (var (track, v) in new[] { ("x", (double)g.X), ("y", (double)g.Y) })
+        {
+            var keys = o.Track(track);
+            keys.RemoveAll(k => k.T > lastRecordLt + 0.5 && k.T <= lt + 0.5);
+            keys.Add(new EditKey { T = Math.Round(lt, 1), V = Math.Round(v, 1), Ease = "linear" });
+            keys.Sort((a, b) => a.T.CompareTo(b.T));
+        }
+        lastRecordLt = lt;
+        S.Touch();
     }
 
     // ---------------- coordinates ----------------

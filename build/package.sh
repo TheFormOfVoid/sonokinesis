@@ -46,8 +46,8 @@ cp README.md THIRD-PARTY-NOTICES.md "$OUT/" 2>/dev/null || true
 echo "== editor"
 if ls "$APPDATA/Godot/export_templates/" 2>/dev/null | grep -q "4.7.2.stable.mono"; then
   mkdir -p "$OUT/Beatform Editor"
-  (cd editor && "$GODOT" --headless --export-release "Windows Desktop" "$OUT/Beatform Editor/Beatform Editor.exe" 2>&1 | tail -3)
-  cp -r "$OUT/loader" "$OUT/Beatform Editor/loader"
+  (cd editor && dotnet build -nologo -v q | grep -E "Error\(s\)" && "$GODOT" --headless --path . --export-release "Windows Desktop" "$(cygpath -w "$OUT/Beatform Editor/Beatform Editor.exe")" 2>&1 | grep -E "^ERROR" || true)
+  test -f "$OUT/Beatform Editor/Beatform Editor.exe"
 else
   echo "   Godot .NET export templates for 4.7.2 are not installed: the editor is not exported."
   echo "   Run it from source with: Godot_v4.7.2-stable_mono --path editor"

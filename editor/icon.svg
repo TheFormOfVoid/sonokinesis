@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" rx="48" fill="#0b0d12"/>
+  <circle cx="128" cy="128" r="86" fill="none" stroke="#33e5ff" stroke-width="10" opacity="0.55"/>
+  <polygon points="128,52 196,176 60,176" fill="#ff2a6d"/>
+  <rect x="104" y="150" width="48" height="48" fill="#33e5ff" transform="rotate(45 128 174)"/>
+</svg>

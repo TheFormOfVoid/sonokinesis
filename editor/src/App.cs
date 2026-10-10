@@ -354,6 +354,8 @@ public partial class App : Control
         objectMenu.AddItem("Select the whole pattern   Ctrl+G", 6);
         objectMenu.AddItem("Mirror horizontally", 7);
         objectMenu.AddItem("Mirror vertically", 8);
+        objectMenu.AddItem("Repeat…", 11);
+        objectMenu.AddItem("Stretch time…", 12);
         objectMenu.AddItem("Bring to front", 9);
         objectMenu.AddItem("Send to back", 10);
         objectMenu.Position = (Vector2I)screenPos;
@@ -373,6 +375,8 @@ public partial class App : Control
             case 7: Mirror(true); break;
             case 8: Mirror(false); break;
             case 9: S.Edit("Bring to front", () => { int top = S.Doc.Objects.Max(o => o.Layer); foreach (var o in S.SelectedObjects) o.Layer = top + 1; }); break;
+            case 11: ToolDialogs.ShowRepeat(this); break;
+            case 12: ToolDialogs.ShowStretch(this); break;
             case 10: S.Edit("Send to back", () => { int bottom = S.Doc.Objects.Min(o => o.Layer); foreach (var o in S.SelectedObjects) o.Layer = bottom - 1; }); break;
         }
     }
