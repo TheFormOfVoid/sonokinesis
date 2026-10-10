@@ -40,6 +40,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Engine-free level code and audio decoding, shared with the editor. -->
+    <Compile Include="..\..\shared\**\*.cs" Link="shared\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="NLayer" Version="1.16.0" />
     <PackageReference Include="NVorbis" Version="0.10.5" />
   </ItemGroup>

@@ -18,3 +18,9 @@ research/save-backup/
 loader/tests/*/bin/
 loader/tests/*/obj/
 research/audio-test/
+
+# Godot
+editor/.godot/
+editor/bin/
+editor/obj/
+research/editor-test/

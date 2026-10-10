@@ -7,7 +7,7 @@
     <RootNamespace>Beatform.CoreTests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <!-- The core is engine-free and is compiled straight from the loader sources. -->
-    <Compile Include="..\..\src\Core\*.cs" Link="Core\%(Filename)%(Extension)" />
+    <!-- The engine-free core is compiled straight from shared/Core. -->
+    <Compile Include="..\..\..\shared\Core\*.cs" Link="Core\%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

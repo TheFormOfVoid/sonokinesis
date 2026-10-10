@@ -1,10 +1,10 @@
 using System;
 using System.IO;
 
-namespace Beatform.Loader.Runtime;
+namespace Beatform.Audio;
 
 /// <summary>Decoded PCM audio: interleaved float samples in [-1, 1].</summary>
-internal sealed class PcmAudio
+public sealed class PcmAudio
 {
     public float[] Samples;
     public int Channels;
@@ -17,7 +17,7 @@ internal sealed class PcmAudio
 /// Decodes WAV, Ogg Vorbis and MP3 files in managed code. The game's build strips Unity's runtime
 /// audio decoding, so levels bring their audio through here. Safe to call off the main thread.
 /// </summary>
-internal static class AudioDecoder
+public static class AudioDecoder
 {
     public static PcmAudio Decode(string path)
     {
