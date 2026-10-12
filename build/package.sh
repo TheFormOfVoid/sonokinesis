@@ -6,7 +6,7 @@
 #     loader/plugin/          Beatform.Loader.dll and its audio decoders
 #     loader/levels/          the demo level
 #     Install-Beatform.bat / Uninstall-Beatform.bat (+ .ps1)
-#     README.md, THIRD-PARTY-NOTICES.md
+#     README.md, THIRD-PARTY-NOTICES.md, Montserrat-OFL.txt
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
@@ -42,6 +42,7 @@ cp -r spec/examples/demo "$OUT/loader/levels/Neon Rehearsal"
 echo "== installer"
 cp installer/*.ps1 installer/*.bat "$OUT/"
 cp README.md THIRD-PARTY-NOTICES.md "$OUT/" 2>/dev/null || true
+cp shared/Fonts/OFL.txt "$OUT/Montserrat-OFL.txt"
 
 echo "== editor"
 if ls "$APPDATA/Godot/export_templates/" 2>/dev/null | grep -q "4.7.2.stable.mono"; then

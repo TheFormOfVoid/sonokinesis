@@ -169,7 +169,7 @@ public partial class InspectorPanel : PanelContainer
         var w = o.Track("w");
         if (previous != null)
         {
-            double r = Beatform.Core.StrokeFont.Width(o.Shape.Text) / Beatform.Core.StrokeFont.Width(previous);
+            double r = Beatform.Core.TextFont.Width(o.Shape.Text, o.Shape.Bold) / Beatform.Core.TextFont.Width(previous, o.Shape.Bold);
             if (w.Count == 0) w.Add(new EditKey { T = 0, V = EditObject.DefaultValue("w") });
             foreach (var k in w) k.V = Math.Round(k.V * r, 2);
             return;
@@ -177,7 +177,7 @@ public partial class InspectorPanel : PanelContainer
         var h = o.Track("h");
         double hv = h.Count > 0 ? h[0].V : EditObject.DefaultValue("h");
         w.Clear();
-        w.Add(new EditKey { T = 0, V = Math.Round(hv * Beatform.Core.StrokeFont.Width(o.Shape.Text), 2) });
+        w.Add(new EditKey { T = 0, V = Math.Round(hv * Beatform.Core.TextFont.Width(o.Shape.Text, o.Shape.Bold), 2) });
     }
 
     private void BuildObject(EditObject o)
@@ -212,9 +212,16 @@ public partial class InspectorPanel : PanelContainer
             case "ring": Row("Thickness", Num(() => o.Shape.Thickness, v => o.Shape.Thickness = Math.Clamp(v, 0.02, 0.5), "Ring thickness", 0.01, 0.02, 0.5)); break;
             case "text":
                 Row("Text", Text(() => o.Shape.Text, v => { var old = o.Shape.Text; o.Shape.Text = v; FitTextWidth(o, old); }, "Edit text"),
-                    "Letters, digits and basic punctuation. The width follows the text.");
-                Row("Weight", Num(() => o.Shape.Weight, v => o.Shape.Weight = Math.Clamp(v, 0.04, 0.4), "Text weight", 0.01, 0.04, 0.4),
-                    "Stroke thickness as a part of the letter height.");
+                    "One line of letters, digits and punctuation. The height is the height of a capital letter; the width follows the text.");
+                Row("Bold", Check("bold letters", () => o.Shape.Bold, v =>
+                    {
+                        string t = o.Shape.Text;
+                        double before = Beatform.Core.TextFont.Width(t, o.Shape.Bold);
+                        o.Shape.Bold = v;
+                        double r = Beatform.Core.TextFont.Width(t, v) / before;
+                        foreach (var k in o.Track("w")) k.V = Math.Round(k.V * r, 2);
+                    }, "Toggle bold"),
+                    "Montserrat Bold or Medium. The width follows the letters.");
                 Buttons(Btn("Fit width to text", () => S.Edit("Fit text", () => FitTextWidth(o, null)),
                     "Makes the box exactly as wide as the letters need at the current height."));
                 break;
@@ -290,9 +297,17 @@ public partial class InspectorPanel : PanelContainer
             Row("Heading", Num(() => m.Angle, v => m.Angle = v, "Heading", 1, -360, 360, "°"), "0 is right, 90 down, 180 left.");
         Row("Speed", Num(() => m.Speed, v => m.Speed = Math.Max(0, v), "Speed", 5, 0, 5000, " /s"), "Cruising speed. A player moves at about 380.");
         Row("Dash speed", Num(() => m.DashSpeed, v => m.DashSpeed = Math.Max(0, v), "Dash speed", 10, 0, 10000, " /s"));
-        Row("Dash every", Num(() => m.DashEvery, v => m.DashEvery = Math.Max(16, v), "Dash interval", 10, 16, 100000, " ms"), "Cruising time between dashes.");
+        Row("Dash on", Options(new[] { "time", "beat" }, () => m.DashBeats > 0 ? "beat" : "time",
+            v => m.DashBeats = v == "beat" ? (m.DashBeats > 0 ? m.DashBeats : 2) : 0, "Dash timing",
+            new[] { "A timer", "The beat" }), "On the beat, dashes land on the level's beats (BPM and offset in the level settings).");
+        if (m.DashBeats > 0)
+            Row("Dash every", Num(() => m.DashBeats, v => m.DashBeats = Math.Clamp(v, 0.25, 64), "Dash beats", 0.25, 0.25, 64, " beats"),
+                $"One dash every this many beats, at {S.Doc.Bpm:0.##} BPM.");
+        else
+            Row("Dash every", Num(() => m.DashEvery, v => m.DashEvery = Math.Max(16, v), "Dash interval", 10, 16, 100000, " ms"), "Cruising time between dashes.");
         Row("Dash length", Num(() => m.DashTime, v => m.DashTime = Math.Max(0, v), "Dash length", 10, 0, 10000, " ms"));
-        Row("First dash", Num(() => m.FirstDash, v => m.FirstDash = v, "First dash", 10, -1, 100000, " ms"), "Cruising time before the first dash. 0 dashes right away, -1 uses Dash every.");
+        Row("First dash", Num(() => m.FirstDash, v => m.FirstDash = v, "First dash", 10, -1, 100000, " ms"), m.DashBeats > 0 ? "The first dash is on the first beat after this long (-1 or 0: the first beat after it appears)."
+            : "Cruising time before the first dash. 0 dashes right away, -1 uses Dash every.");
         Row("Stop at", Num(() => m.StopAt, v => m.StopAt = v, "Stop at", 10, -1, 1000000, " ms"), "After this long it brakes and waits (-1: never).");
         if (m.StopAt >= 0) Row("Stop for", Num(() => m.StopFor, v => m.StopFor = Math.Max(0, v), "Stop for", 10, 0, 100000, " ms"));
         Row("Leave at", Num(() => m.LeaveAt, v => m.LeaveAt = v, "Leave at", 10, -1, 1000000, " ms"), "After this long it dashes away and stops hurting (-1: never).");

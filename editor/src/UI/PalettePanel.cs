@@ -152,7 +152,7 @@ public partial class PalettePanel : PanelContainer
                 o.Hitbox = false;
                 o.Warn = 0;
                 o.Track("h")[0].V = 48;
-                o.Track("w")[0].V = Math.Round(48 * Beatform.Core.StrokeFont.Width(o.Shape.Text), 2);
+                o.Track("w")[0].V = Math.Round(48 * Beatform.Core.TextFont.Width(o.Shape.Text, o.Shape.Bold), 2);
             }
             S.Edit("Add " + o.Shape.Type, () => S.Doc.Objects.Add(o));
             S.Select(new[] { o.Id });

@@ -70,7 +70,8 @@ public sealed class ShapeDef
     public double Thickness = 0.12;
     public int Spikes = 12;
     public string Text = "";
-    public double Weight = 0.14;
+    /// <summary>Text: Montserrat Bold (true) or Medium.</summary>
+    public bool Bold = true;
 
     /// <summary>Key used to share precomputed geometry between objects with identical shapes.</summary>
     public string GeometryKey => Type switch
@@ -81,7 +82,7 @@ public sealed class ShapeDef
         ShapeType.Star => $"star{Points}_{Inner:0.###}",
         ShapeType.Ring => $"ring{Thickness:0.###}",
         ShapeType.Spikes => $"spikes{Spikes}_{Inner:0.###}",
-        ShapeType.Text => $"text{Weight:0.###}_{Text}",
+        ShapeType.Text => $"text{(Bold ? "b" : "m")}_{Text}",
         _ => "rect",
     };
 }
@@ -312,7 +313,7 @@ public sealed class LevelData
             default: s.Type = ShapeType.Rect; break;
         }
         s.Text = Str(sh, "text") ?? "";
-        s.Weight = Math.Clamp(Num(sh, "weight", 0.14), 0.04, 0.4);
+        s.Bold = Bool(sh, "bold", true);
         s.Sides = Math.Clamp((int)Num(sh, "sides", 3), 3, 12);
         s.Points = Math.Clamp((int)Num(sh, "points", 5), 3, 12);
         s.Spikes = Math.Clamp((int)Num(sh, "spikes", 12), 4, 24);

@@ -250,7 +250,7 @@ public sealed class LevelEvaluator
     /// <summary>The imposter's simulation advanced to song time t (clamped to its lifetime).</summary>
     public ImposterSim SimAt(LevelObject o, double t)
     {
-        if (!sims.TryGetValue(o, out var sim)) sims[o] = sim = new ImposterSim(o);
+        if (!sims.TryGetValue(o, out var sim)) sims[o] = sim = new ImposterSim(o, Level.Meta.Bpm);
         sim.AdvanceTo(Math.Clamp(t - o.Start, 0, o.End - o.Start), Players);
         return sim;
     }

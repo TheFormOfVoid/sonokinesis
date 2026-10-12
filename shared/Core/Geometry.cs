@@ -104,7 +104,7 @@ public sealed class ShapeGeometry
                 return new ShapeGeometry { Vertices = verts, Indices = idx, Outline = outer, Hole = inner };
             }
             case ShapeType.Text:
-                return StrokeFont.Build(def.Text, def.Weight);
+                return TextFont.Build(def.Text, def.Bold);
         }
         throw new ArgumentOutOfRangeException(nameof(def));
     }

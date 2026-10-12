@@ -57,7 +57,13 @@ public sealed class ImposterBehavior
     public double DashDrag = 0.9;
     public double DashTime = 450;
     public double DashEvery = 550;
-    /// <summary>Cruising time before the first dash; negative means <see cref="DashEvery"/>.</summary>
+    /// <summary>
+    /// Above 0: dash on the level's beats instead (beat k at song time k · 60000 / bpm), one every this
+    /// many beats; DashEvery is ignored. The first dash is on the first beat at or after activation plus
+    /// <see cref="FirstDash"/>.
+    /// </summary>
+    public double DashBeats;
+    /// <summary>Cruising time before the first dash; negative means <see cref="DashEvery"/> (0 with DashBeats).</summary>
     public double FirstDash = -1;
     /// <summary>Time after activation to brake and stand still; negative means never.</summary>
     public double StopAt = -1;
@@ -82,6 +88,7 @@ public sealed class ImposterBehavior
         b.DashDrag = Math.Clamp(Num(e, "dashDrag", b.DashDrag), 0.5, 1);
         b.DashTime = Math.Max(0, Num(e, "dashTime", b.DashTime));
         b.DashEvery = Math.Max(16, Num(e, "dashEvery", b.DashEvery));
+        b.DashBeats = Num(e, "dashBeats", 0) > 0 ? Math.Clamp(Num(e, "dashBeats", 0), 0.25, 64) : 0;
         b.FirstDash = Num(e, "firstDash", b.FirstDash);
         b.StopAt = Num(e, "stopAt", b.StopAt);
         b.StopFor = Math.Max(0, Num(e, "stopFor", b.StopFor));
@@ -127,19 +134,24 @@ public sealed class ImposterSim
 
     private readonly LevelObject obj;
     private readonly ImposterBehavior b;
+    private readonly double beatMs;
 
     // Simulation state after `steps` steps (local time steps * StepMs since activation, -1 = not started).
     private long steps = -1;
     private double x, y, vx, vy, heading, drawAngle, stretch, warp, lifeT, stateT, trailT, dashAngle;
     private State state;
     private bool firstDashDone, stopped, entered;
+    /// <summary>With DashBeats: time after activation of the next dash on the beat.</summary>
+    private double nextBeatDash;
     public readonly List<Particle> Trail = new();
     public readonly List<Pulse> Pulses = new();
 
-    public ImposterSim(LevelObject o)
+    /// <param name="bpm">The level's tempo, for dashes on the beat.</param>
+    public ImposterSim(LevelObject o, double bpm = 120)
     {
         obj = o;
         b = o.Imposter;
+        beatMs = 60000 / Math.Clamp(bpm, 1, 1000);
     }
 
     /// <summary>The current frame: the last step, moved on by its velocity for the time since.</summary>
@@ -204,7 +216,23 @@ public sealed class ImposterSim
         Trail.Clear();
         Pulses.Clear();
         Burst();
-        if (b.FirstDash == 0) StartDash();
+        if (b.DashBeats > 0)
+        {
+            // The first beat at or after the earliest dash time, as time after activation.
+            double activation = obj.Start + obj.Warn;
+            double earliest = activation + Math.Max(0, b.FirstDash);
+            nextBeatDash = Math.Ceiling(earliest / beatMs - 1e-6) * beatMs - activation;
+            if (nextBeatDash < StepMs / 2) { StartDash(); nextBeatDash += b.DashBeats * beatMs; }
+        }
+        else if (b.FirstDash == 0) StartDash();
+    }
+
+    /// <summary>With DashBeats: dashes when the step nearest the next dash beat comes.</summary>
+    private bool BeatDashDue()
+    {
+        if (b.DashBeats <= 0 || lifeT < nextBeatDash - StepMs / 2) return false;
+        while (nextBeatDash - StepMs / 2 <= lifeT) nextBeatDash += b.DashBeats * beatMs;
+        return true;
     }
 
     private void Step(IPlayerSource players)
@@ -237,6 +265,11 @@ public sealed class ImposterSim
             {
                 if (aim) heading = Deg(Math.Atan2(py - y, px - x));
                 SetVelocity(b.Speed, heading);
+                if (b.DashBeats > 0)
+                {
+                    if (BeatDashDue()) StartDash();
+                    break;
+                }
                 double wait = !firstDashDone && b.FirstDash > 0 ? b.FirstDash : b.DashEvery;
                 if (stateT >= wait) StartDash();
                 break;
@@ -251,12 +284,18 @@ public sealed class ImposterSim
                 }
                 if (speed > b.Speed) { vx *= b.DashDrag; vy *= b.DashDrag; }
                 else SetVelocity(b.Speed, heading);
-                if (stateT >= b.DashTime) { state = State.Cruise; stateT = 0; }
+                if (BeatDashDue()) StartDash();
+                else if (stateT >= b.DashTime) { state = State.Cruise; stateT = 0; }
                 break;
             }
             case State.Stop:
                 vx *= 0.8; vy *= 0.8;
-                if (stateT >= b.StopFor) StartDash();
+                if (stateT >= b.StopFor)
+                {
+                    StartDash();
+                    // Beats that passed while standing still are skipped.
+                    if (b.DashBeats > 0) BeatDashDue();
+                }
                 break;
             case State.Leave:
                 SetVelocity(b.DashSpeed, dashAngle);

@@ -51,7 +51,7 @@ never read by the loader.
 | `author` | string | `""` | Level creator. |
 | `description` | string | `""` | Free text. |
 | `audio` | string | required | File name of the song, relative to the level folder. |
-| `bpm` | number | `120` | Tempo. Used by the editor grid only. |
+| `bpm` | number | `120` | Tempo. Beat `k` is at song time `k · 60000 / bpm` (set `offsetMs` so song time 0 is a beat). Used by the editor grid and by imposters that dash on the beat. |
 | `beatsPerBar` | int | `4` | Editor grid only. |
 | `offsetMs` | number | `0` | Song time `0` is this many ms into the audio file. Lets creators trim silence. |
 | `lengthMs` | number | audio length | The level ends at this song time. |
@@ -209,27 +209,30 @@ same polygons. Circles use 48 segments, the first one at angle 0 (pointing to `+
 | `star` | `points` (3–12, default 5), `inner` (0.1–0.95, default 0.5) | alternating outer radius 0.5 and inner radius `0.5·inner`, first outer vertex pointing up |
 | `ring` | `thickness` (0.02–0.5, default 0.12) | annulus between radius 0.5 and `0.5 - thickness` |
 | `spikes` | `spikes` (4–24, default 12), `inner` (0.4–0.95, default 0.75) | spike ball: like `star` with `points = spikes` |
-| `text` | `text` (string, default `""`), `weight` (0.04–0.4, default 0.14) | the unit square (see *Text* below) |
+| `text` | `text` (string, default `""`), `bold` (bool, default `true`) *(v2)* | the unit square (see *Text* below) |
 
 The `rect` is filled corner to corner. `circle`, `polygon`, `star` and `spikes` are filled as one
 polygon. `ring` fills the area between its two circles.
 
 #### Text
 
-`text` draws one line in Beatform's stroke font. Each glyph is a set of polylines on a grid 4 units
-wide and 6 units tall (x right, y down); the glyph table in `shared/Core/StrokeFont.cs` is the
-reference. Lowercase letters use the uppercase glyphs; spaces and characters without a glyph leave
-an empty cell.
+`text` draws one line of filled letters in Montserrat: Montserrat Bold, or Montserrat Medium with
+`bold: false` (SIL Open Font License 1.1, `shared/Fonts/OFL.txt`). The glyph outlines are flattened
+(curves within 2.5 font units of the real ones) and filled with the nonzero rule ahead of time by
+`tools/bake_font.py`; the result in `shared/Core/TextFontData.cs` is the reference. It covers ASCII
+32–126 and `‘ ’ “ ” … – — ×`; other characters draw nothing and take the width of a space.
 
-Glyph `i` (0-based) starts at `x = i · 5.4` (4 for the glyph plus 1.4 spacing). The line is
-`n · 5.4 − 1.4` units wide (`n` = number of characters, at least 1). Every point is divided by 6, so
-the letters are 1 unit tall, centred on `(0, 0)`, and then its x is divided by the line width
-`width = (n · 5.4 − 1.4) / 6`. That squeezes the line into the unit square, so an object with
-`w = h · width` shows undistorted letters.
+Glyphs are laid out with their advance widths and the font's pair kerning. In font units (1000 per
+em, y down, baseline at 0, capitals reaching −700) the line's ink runs from `inkMin` (the leftmost
+point of any letter) to `inkMax`. Each point maps to the unit square as
+`x' = (x − inkMin) / (inkMax − inkMin) − 0.5`, `y' = y / 700 + 0.5`: capitals fill the box height
+with the baseline on its bottom edge (descenders hang below it, accents and tall lowercase letters
+reach above), and the ink fills the box width. `width = (inkMax − inkMin) / 700` (0.5 when nothing
+is drawn), so an object with `w = h · width` shows undistorted letters.
 
-Each polyline segment is drawn as a rectangle `weight` thick (in letter heights, before the
-horizontal squeeze), extended by `weight / 2` past both ends. For collision a text object is its whole
-box (the unit square). Most text is decoration and has `hitbox: false`.
+For collision a text object is its whole box (the unit square). Most text is decoration and has
+`hitbox: false`. Version 1 files have no text shapes; the stroke-font `weight` of early version 2
+files is ignored.
 
 ### Transform
 
@@ -292,7 +295,8 @@ the centre of the screen. Other parents are ignored. Other objects can use an im
 | `dashDrag` | `0.9` | While faster than `speed`, velocity is multiplied by this every step. |
 | `dashTime` | `450` | Length of a dash in ms. |
 | `dashEvery` | `550` | Cruising time between dashes in ms. |
-| `firstDash` | `dashEvery` | Cruising time before the first dash; `0` dashes on activation. |
+| `dashBeats` *(v2)* | `0` | Above 0 (0.25–64): dash on the beat instead, one every `dashBeats` beats (see `meta.bpm`); `dashEvery` is ignored. |
+| `firstDash` | `dashEvery` | Cruising time before the first dash; `0` dashes on activation. With `dashBeats`, the first dash is on the first beat at or after activation + `max(0, firstDash)`. |
 | `stopAt`, `stopFor` | never, `0` | After `stopAt` ms it brakes and stands for `stopFor` ms, then dashes. |
 | `leaveAt` | never | After `leaveAt` ms it dashes away on its heading at `dashSpeed` and no longer hurts. |
 | `bounds` | `true` for chase | Keeps it inside the screen while hunting. |
@@ -305,14 +309,18 @@ A chaser faces the nearest living player.
 
 **Simulation.** From the end of the warning the imposter runs in fixed steps of `1000/60` ms. It
 starts with heading `angle` (a chaser: towards the nearest living player), velocity 0, in the
-*cruise* state, and throws a burst (below); with `firstDash: 0` it dashes at once. Each step, with
+*cruise* state, and throws a burst (below); with `firstDash: 0` it dashes at once. With `dashBeats`,
+its next dash time is the first beat at or after activation + `max(0, firstDash)`; if that is within
+half a step of activation it dashes at once and the next dash time moves on by `dashBeats` beats. Each step, with
 `dt` the step length in seconds and `life` the time since activation:
 
 1. If `life ≥ leaveAt`, it switches to *leave* once: remembers its heading, warp 0.8, adds a ring
    and a burst. If `life ≥ stopAt`, it switches to *stop* once (unless leaving).
 2. A chaser with a living player sets heading towards the nearest one (in *cruise* and *dash*).
 3. *Cruise*: velocity = `speed` along the heading; after `firstDash` (first time) or `dashEvery` ms
-   in this state it dashes. *Dash*: a chaser turns its velocity to the heading keeping its speed;
+   in this state it dashes. With `dashBeats` it instead dashes, in *cruise* or *dash*, at the first
+   step with `life ≥ next dash time − half a step`, and the next dash time moves on by `dashBeats`
+   beats until it is later than that (also when a *stop* ends, after its dash). *Dash*: a chaser turns its velocity to the heading keeping its speed;
    if faster than `speed` the velocity is multiplied by `dashDrag`, otherwise set to `speed` along
    the heading; after `dashTime` ms it returns to *cruise*. *Stop*: velocity × 0.8; after `stopFor`
    ms it dashes. *Leave*: velocity = `dashSpeed` along the remembered heading.

@@ -27,7 +27,8 @@ public sealed class ShapeSpec
     public double Inner = 0.5;
     public double Thickness = 0.12;
     public string Text = "TEXT";
-    public double Weight = 0.14;
+    /// <summary>Montserrat Bold (true) or Medium.</summary>
+    public bool Bold = true;
 
     public ShapeSpec Clone() => (ShapeSpec)MemberwiseClone();
 
@@ -44,6 +45,8 @@ public sealed class ImposterSpec
     public double DashDrag = 0.9;
     public double DashTime = 450;
     public double DashEvery = 550;
+    /// <summary>Above 0: dash on the beat, every this many beats.</summary>
+    public double DashBeats;
     public double FirstDash = -1;
     public double StopAt = -1;
     public double StopFor = 0;
@@ -245,7 +248,7 @@ public sealed class LevelDocument
             case "star": w.WriteNumber("points", o.Shape.Points); Num(w, "inner", o.Shape.Inner); break;
             case "spikes": w.WriteNumber("spikes", o.Shape.Spikes); Num(w, "inner", o.Shape.Inner); break;
             case "ring": Num(w, "thickness", o.Shape.Thickness); break;
-            case "text": w.WriteString("text", o.Shape.Text ?? ""); Num(w, "weight", o.Shape.Weight); break;
+            case "text": w.WriteString("text", o.Shape.Text ?? ""); if (!o.Shape.Bold) w.WriteBoolean("bold", false); break;
         }
         w.WriteEndObject();
         Num(w, "start", o.Start);
@@ -268,6 +271,7 @@ public sealed class LevelDocument
             Num(w, "dashDrag", m.DashDrag);
             Num(w, "dashTime", m.DashTime);
             Num(w, "dashEvery", m.DashEvery);
+            if (m.DashBeats > 0) Num(w, "dashBeats", m.DashBeats);
             if (m.FirstDash >= 0) Num(w, "firstDash", m.FirstDash);
             if (m.StopAt >= 0) { Num(w, "stopAt", m.StopAt); Num(w, "stopFor", m.StopFor); }
             if (m.LeaveAt >= 0) Num(w, "leaveAt", m.LeaveAt);
@@ -408,6 +412,7 @@ public sealed class LevelDocument
                     m.DashDrag = D(im["dashDrag"], m.DashDrag);
                     m.DashTime = D(im["dashTime"], m.DashTime);
                     m.DashEvery = D(im["dashEvery"], m.DashEvery);
+                    m.DashBeats = Math.Max(0, D(im["dashBeats"], 0));
                     m.FirstDash = D(im["firstDash"], m.FirstDash);
                     m.StopAt = D(im["stopAt"], m.StopAt);
                     m.StopFor = D(im["stopFor"], m.StopFor);
@@ -428,7 +433,7 @@ public sealed class LevelDocument
                     eo.Shape.Inner = D(sh["inner"], eo.Shape.Type == "spikes" ? 0.75 : 0.5);
                     eo.Shape.Thickness = D(sh["thickness"], 0.12);
                     eo.Shape.Text = (string)sh["text"] ?? "";
-                    eo.Shape.Weight = D(sh["weight"], 0.14);
+                    eo.Shape.Bold = sh["bold"] is JsonValue bv ? bv.GetValue<bool>() : true;
                 }
                 if (o["tracks"] is JsonObject tr)
                 {

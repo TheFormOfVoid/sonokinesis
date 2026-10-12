@@ -78,22 +78,40 @@ internal static class Program
         var tri = ShapeGeometry.For(new ShapeDef { Type = ShapeType.Polygon, Sides = 3 });
         Near(tri.Outline[0].X, 0, "triangle points up (x)", 1e-12);
         Near(tri.Outline[0].Y, -0.5, "triangle points up (y)", 1e-12);
-        // Text: one line squeezed into the unit box; "Hh" is 3 + 3 strokes (lowercase uses the uppercase glyph), two triangles each.
-        Near(StrokeFont.Width("HI"), (2 * 4 + 1.4) / 6, "text width of two letters");
-        Near(StrokeFont.Width(""), 4.0 / 6, "empty text is one letter wide");
-        var hi = ShapeGeometry.For(new ShapeDef { Type = ShapeType.Text, Text = "Hh", Weight = 0.1 });
-        Check(hi.Indices.Length == 6 * 6 && hi.Vertices.Length == 6 * 4, $"text Hh has 6 strokes (got {hi.Indices.Length / 6})");
-        Check(hi.Outline.Length == 4 && hi.Outline[0].X == -0.5 && hi.Outline[2].Y == 0.5, "text collides as its box");
-        double minX = double.MaxValue, maxX = double.MinValue;
-        foreach (var v in hi.Vertices) { minX = Math.Min(minX, v.X); maxX = Math.Max(maxX, v.X); }
-        Near(minX, -0.5 - 0.05 / StrokeFont.Width("HH"), "text starts at the box edge (minus half a stroke)", 1e-9);
-        Near(maxX, 0.5 + 0.05 / StrokeFont.Width("HH"), "text ends at the box edge (plus half a stroke)", 1e-9);
-        var spaced = ShapeGeometry.For(new ShapeDef { Type = ShapeType.Text, Text = "H I~", Weight = 0.1 });
-        Check(spaced.Indices.Length == 6 * 6, "spaces and unknown characters draw nothing");
+        // Text: Montserrat glyphs, capitals spanning the box height and the ink squeezed to its width.
+        Check(TextFont.Width("HH") > TextFont.Width("H") && TextFont.Width("H") > 0.5, "text width grows with the letters");
+        Check(TextFont.Width("HELLO", true) > TextFont.Width("HELLO", false), "bold letters are wider");
+        Near(TextFont.Width(""), 0.5, "text without letters is half a capital wide");
+        Check(TextFont.Width("AV") < TextFont.Width("A") + TextFont.Width("V"), "kerning pulls A and V together");
+        var hh = ShapeGeometry.For(new ShapeDef { Type = ShapeType.Text, Text = "Hh" });
+        double minX = double.MaxValue, maxX = double.MinValue, minY = double.MaxValue, maxY = double.MinValue;
+        foreach (var v in hh.Vertices) { minX = Math.Min(minX, v.X); maxX = Math.Max(maxX, v.X); minY = Math.Min(minY, v.Y); maxY = Math.Max(maxY, v.Y); }
+        Near(minX, -0.5, "text ink starts at the box edge", 1e-9);
+        Near(maxX, 0.5, "text ink ends at the box edge", 1e-9);
+        Near(maxY, 0.5, "the baseline is the bottom of the box", 1e-9);
+        Check(minY < -0.5, "an h is taller than a capital");
+        Check(hh.Indices.Length % 3 == 0 && hh.Indices.Length > 0, "text is filled triangles");
+        Check(hh.Outline.Length == 4 && hh.Outline[0].X == -0.5 && hh.Outline[2].Y == 0.5, "text collides as its box");
+        double cover = 0;
+        for (int i = 0; i < hh.Indices.Length; i += 3)
+        {
+            Vec2 p0 = hh.Vertices[hh.Indices[i]], p1 = hh.Vertices[hh.Indices[i + 1]], p2 = hh.Vertices[hh.Indices[i + 2]];
+            double c = (p1.X - p0.X) * (p2.Y - p0.Y) - (p1.Y - p0.Y) * (p2.X - p0.X);
+            Check(c > 0, "text triangles wind like the other shapes");
+            cover += c / 2;
+        }
+        Check(cover > 0.2 && cover < 0.8, $"text covers part of its box (got {cover:0.###})");
+        var g = ShapeGeometry.For(new ShapeDef { Type = ShapeType.Text, Text = "Hg" });
+        double gy = double.MinValue;
+        foreach (var v in g.Vertices) gy = Math.Max(gy, v.Y);
+        Check(gy > 0.6, "descenders hang below the box");
+        var unknown = ShapeGeometry.For(new ShapeDef { Type = ShapeType.Text, Text = "H一" });
+        Check(unknown.Indices.Length == ShapeGeometry.For(new ShapeDef { Type = ShapeType.Text, Text = "H" }).Indices.Length, "characters without a glyph draw nothing");
+        Check(ShapeGeometry.For(new ShapeDef { Type = ShapeType.Text, Text = "  " }).Indices.Length == 0, "spaces draw nothing");
         var parsed = LevelData.Parse("{\"format\":\"beatform.level\",\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},"
-            + "\"objects\":[{\"shape\":{\"type\":\"text\",\"text\":\"OK\",\"weight\":9}}]}");
+            + "\"objects\":[{\"shape\":{\"type\":\"text\",\"text\":\"OK\"}},{\"shape\":{\"type\":\"text\",\"text\":\"OK\",\"bold\":false}}]}");
         Check(parsed.Objects[0].Shape.Type == ShapeType.Text && parsed.Objects[0].Shape.Text == "OK", "text shape parses");
-        Near(parsed.Objects[0].Shape.Weight, 0.4, "text weight is clamped");
+        Check(parsed.Objects[0].Shape.Bold && !parsed.Objects[1].Shape.Bold, "text is bold unless it says otherwise");
         var square = new[] { new Vec2(-1, -1), new Vec2(1, -1), new Vec2(1, 1), new Vec2(-1, 1) };
         Check(Collision.CircleOverlapsPolygon(new Vec2(0, 0), 0.1, square, 4), "center inside");
         Check(Collision.CircleOverlapsPolygon(new Vec2(1.5, 0), 0.6, square, 4), "edge touch");
@@ -254,6 +272,26 @@ internal static class Program
         np.Players[0] = new PlayerInfo { Number = 1, Position = new Vec2(-200, 0), Alive = true };
         ns = nev.SimAt(near.Objects[0], 1000);
         Near(ns.X, -100, "starts from the player's spot at activation", 1e-6);
+
+        // Dashes on the beat: 120 BPM, so beats at 0, 500, 1000... (song time, whatever the audio offset);
+        // active at 300, a dash every 2 beats starting on the first beat after activation.
+        var beatLevel = LevelData.Parse("{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\",\"bpm\":120,\"offsetMs\":100},"
+            + "\"objects\":[{\"id\":\"b\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"warn\":300,\"end\":4000,"
+            + "\"imposter\":{\"mode\":\"straight\",\"angle\":180,\"speed\":100,\"dashSpeed\":800,\"dashTime\":450,\"dashEvery\":123,\"dashBeats\":2},"
+            + "\"tracks\":{\"x\":[[0,300]],\"w\":[[0,24]],\"h\":[[0,24]]}}]}");
+        Near(beatLevel.Objects[0].Imposter.DashBeats, 2, "dashBeats parses");
+        var bev = new LevelEvaluator(beatLevel);
+        var dashes = new List<double>();
+        int lastPulses = 0;
+        for (double t = 300; t < 3200; t += ImposterSim.StepMs / 4)
+        {
+            var bs = bev.SimAt(beatLevel.Objects[0], t);
+            if (bs.Pulses.Count > lastPulses) dashes.Add(t);
+            lastPulses = bs.Pulses.Count;
+        }
+        Check(dashes.Count == 3, $"three dashes in 2.9 s (got {dashes.Count})");
+        for (int i = 0; i < Math.Min(3, dashes.Count); i++)
+            Near(dashes[i], 500 + 1000 * i, $"dash {i + 1} lands on its beat", ImposterSim.StepMs);
 
         // Sway and sound events.
         var ev2 = LevelData.Parse("{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"events\":["
