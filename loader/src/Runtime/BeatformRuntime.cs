@@ -122,6 +122,7 @@ public class BeatformRuntime : MonoBehaviour
             RunSounds(level.Data, t);
         }
         ApplySway(level.Evaluator.SwayAt(t));
+        ApplyPlayerSpeed((float)level.Evaluator.PlayerSpeedAt(t));
         if (Settings.DevConsole)
         {
             double ms = 1000.0 / System.Diagnostics.Stopwatch.Frequency;
@@ -160,6 +161,19 @@ public class BeatformRuntime : MonoBehaviour
             if (e.T > t) break;
             if (e.Type == Core.EventType.Sound && e.T > lastSongTime) GameBridge.PlayGameSound(e.Sound, (float)e.Volume);
         }
+    }
+
+    private float playerSpeed = 1;
+
+    /// <summary>
+    /// playerSpeed events: applied every frame while the players are slowed (so players who join or
+    /// come back are slowed too), and once more when they are back to normal.
+    /// </summary>
+    private void ApplyPlayerSpeed(float speed)
+    {
+        if (speed == 1 && playerSpeed == 1) return;
+        GameBridge.ScaleHeroSpeed(speed);
+        playerSpeed = speed;
     }
 
     private float swayRot, swayX, swayY;
@@ -228,6 +242,7 @@ public class BeatformRuntime : MonoBehaviour
         lastSongTime = double.NaN;
         clock.Reset();
         ResetSway();
+        ApplyPlayerSpeed(1);
         sessionStartedAt = 0;
         sessionSeenInGame = false;
         CustomSession.End();

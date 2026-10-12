@@ -106,7 +106,7 @@ public sealed class EditObject
 
 public sealed class EditEvent
 {
-    public static readonly string[] Types = { "shake", "flash", "background", "sway", "sound" };
+    public static readonly string[] Types = { "shake", "flash", "background", "sway", "sound", "playerSpeed" };
     /// <summary>Game sounds a "sound" event can play (see the level format).</summary>
     public static readonly string[] Sounds = { "playerDeath", "playerHit", "playerRespawn", "explosion" };
 
@@ -120,6 +120,8 @@ public sealed class EditEvent
     public double SwayRotation = 1, SwayX = 5, SwayY = 0, Period = 2150, PeriodX = 2330, PeriodY = 2600;
     public string Sound = "playerDeath";
     public double Volume = 1;
+    /// <summary>playerSpeed: a part of the players' normal speed (0..2).</summary>
+    public double Speed = 0.05;
 
     public EditEvent Clone() => (EditEvent)MemberwiseClone();
 }
@@ -325,6 +327,7 @@ public sealed class LevelDocument
                 if (e.Ease != "linear") w.WriteString("ease", e.Ease);
                 break;
             case "sound": w.WriteString("sound", e.Sound ?? ""); Num(w, "volume", e.Volume); break;
+            case "playerSpeed": Num(w, "speed", e.Speed); if (e.Ease != "linear") w.WriteString("ease", e.Ease); break;
         }
         w.WriteEndObject();
     }
@@ -475,6 +478,7 @@ public sealed class LevelDocument
                     PeriodY = D(e["periodY"], D(e["period"], 2000) * 1.21),
                     Sound = (string)e["sound"] ?? "playerDeath",
                     Volume = D(e["volume"], 1),
+                    Speed = D(e["speed"], 1),
                 });
             }
         }

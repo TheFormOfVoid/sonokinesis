@@ -386,6 +386,7 @@ Events change the whole scene at a song time.
 | `background` | `duration`, `color`, `ease` | Background color transition from the current color, starting at `t`. |
 | `sway` *(v2)* | `rotation` (degrees), `x`, `y` (units), `period`, `periodX`, `periodY` (ms; defaults `2000`, `period·1.08`, `period·1.21`), `duration`, `ease` | From `t` until the next sway, the whole scene (players included) turns by `rotation·sin(2π·T/period)` around the screen centre and moves by `x·sin(2π·T/periodX)`, `y·sin(2π·T/periodY)`, with `T` the song time. Over `duration` the amplitudes blend from the previous sway's (or 0). |
 | `sound` *(v2)* | `sound`, `volume` (0–1) | Plays one of the game's own sounds when playback passes `t` (not after seeks or rewinds): `playerDeath`, `playerHit`, `playerRespawn`, `explosion`. Tools without the game stay silent. |
+| `playerSpeed` *(v2)* | `speed` (0–2, default 1), `duration`, `ease` | From `t` on the players move at `speed` times their normal speed, dashes included, until the next `playerSpeed` event; input still turns them, so near 0 they are rooted and turn in place. Before the first one the speed is 1; each one blends from the previous value over `duration` with `ease`. Applied by the loader every frame; editors do not simulate it. |
 
 ## Compatibility
 

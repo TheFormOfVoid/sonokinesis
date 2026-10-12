@@ -316,6 +316,20 @@ public static class GameCommands
             return sb.ToString();
         };
 
+        DevConsole.Commands["herospeed"] = a =>
+        {
+            if (a.Length > 0) Runtime.GameBridge.ScaleHeroSpeed(float.Parse(a[0], System.Globalization.CultureInfo.InvariantCulture));
+            var sb = new StringBuilder();
+            var cols = Hero.allCollisionEnemy;
+            for (int i = 0; cols != null && i < cols.length; i++)
+            {
+                var hc = cols[i].actor?.TryCast<Hero>()?.controlComponent;
+                if (hc == null) continue;
+                sb.AppendLine($"[{i}] speed={hc.speed} normal={hc.speedNormal} dash={hc.speedDash} dashing={hc.isDashing} input=({hc.moveInput?.x:0.##},{hc.moveInput?.y:0.##}) noMove={hc.NoMoveFrame}");
+            }
+            return sb.ToString();
+        };
+
         DevConsole.Commands["hit"] = a =>
         {
             float x = float.Parse(a[0]), y = float.Parse(a[1]), r = float.Parse(a[2]);

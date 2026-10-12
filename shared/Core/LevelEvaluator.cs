@@ -45,6 +45,7 @@ public sealed class LevelEvaluator
     private readonly Rgba[] backgroundStartColors;
     private readonly List<LevelEvent> backgroundEvents = new();
     private readonly List<LevelEvent> swayEvents = new();
+    private readonly List<LevelEvent> speedEvents = new();
     private readonly Dictionary<LevelObject, ImposterSim> sims = new();
     private static readonly ShapeDef pulseRing = new() { Type = ShapeType.Ring, Thickness = ImposterSim.RingThickness };
     /// <summary>Trail copies are a few units wide, so circles use a 10-sided polygon there.</summary>
@@ -70,6 +71,7 @@ public sealed class LevelEvaluator
 
         foreach (var e in level.Events) if (e.Type == EventType.Background) backgroundEvents.Add(e);
         foreach (var e in level.Events) if (e.Type == EventType.Sway) swayEvents.Add(e);
+        foreach (var e in level.Events) if (e.Type == EventType.PlayerSpeed) speedEvents.Add(e);
         backgroundStartColors = new Rgba[backgroundEvents.Count];
         var cur = level.Background;
         for (int i = 0; i < backgroundEvents.Count; i++)
@@ -383,6 +385,20 @@ public sealed class LevelEvaluator
             rot = pr + (rot - pr) * p; x = px + (x - px) * p; y = py + (y - py) * p;
         }
         return (rot * Math.Sin(2 * Math.PI * t / e.Period), x * Math.Sin(2 * Math.PI * t / e.PeriodX), y * Math.Sin(2 * Math.PI * t / e.PeriodY));
+    }
+
+    /// <summary>
+    /// How fast the players move at time t, as a part of their normal speed: 1 before the first
+    /// playerSpeed event; each one blends from the previous value to its own over its duration.
+    /// </summary>
+    public double PlayerSpeedAt(double t)
+    {
+        int i = LastEventAtOrBefore(speedEvents, t);
+        if (i < 0) return 1;
+        var e = speedEvents[i];
+        if (e.Duration <= 0 || t >= e.T + e.Duration) return e.Speed;
+        double from = i > 0 ? speedEvents[i - 1].Speed : 1;
+        return from + (e.Speed - from) * Ease.Apply(e.Ease, (t - e.T) / e.Duration);
     }
 
     public Rgba BackgroundAt(double t)

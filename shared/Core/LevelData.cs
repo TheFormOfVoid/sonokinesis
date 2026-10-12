@@ -119,7 +119,7 @@ public sealed class LevelObject
     public double ActiveEnd => End - Outro;
 }
 
-public enum EventType { Shake, Flash, Background, Sway, Sound }
+public enum EventType { Shake, Flash, Background, Sway, Sound, PlayerSpeed }
 
 public sealed class LevelEvent
 {
@@ -135,6 +135,8 @@ public sealed class LevelEvent
     /// <summary>Sound: the name of a game sound (see spec) and its volume 0..1.</summary>
     public string Sound;
     public double Volume = 1;
+    /// <summary>PlayerSpeed: how fast the players move, as a part of their normal speed (0..2).</summary>
+    public double Speed = 1;
 }
 
 public sealed class LevelMeta
@@ -239,6 +241,7 @@ public sealed class LevelData
                     SwayY = Num(e, "y", 0),
                     Sound = Str(e, "sound"),
                     Volume = Math.Clamp(Num(e, "volume", 1), 0, 1),
+                    Speed = Math.Clamp(Num(e, "speed", 1), 0, 2),
                 };
                 ev.Period = Math.Max(100, Num(e, "period", 2000));
                 ev.PeriodX = Math.Max(100, Num(e, "periodX", ev.Period * 1.08));
@@ -250,6 +253,7 @@ public sealed class LevelData
                     case "background": ev.Type = EventType.Background; break;
                     case "sway": ev.Type = EventType.Sway; break;
                     case "sound": if (string.IsNullOrEmpty(ev.Sound)) continue; ev.Type = EventType.Sound; break;
+                    case "playerSpeed": ev.Type = EventType.PlayerSpeed; break;
                     default: continue;
                 }
                 level.Events.Add(ev);

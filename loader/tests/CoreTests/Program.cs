@@ -297,13 +297,20 @@ internal static class Program
         var ev2 = LevelData.Parse("{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"events\":["
             + "{\"t\":0,\"type\":\"sway\",\"rotation\":1,\"x\":5,\"period\":2000,\"periodX\":2400},"
             + "{\"t\":4000,\"type\":\"sway\",\"rotation\":0,\"duration\":1000},"
-            + "{\"t\":100,\"type\":\"sound\",\"sound\":\"playerDeath\",\"volume\":0.5}]}");
+            + "{\"t\":100,\"type\":\"sound\",\"sound\":\"playerDeath\",\"volume\":0.5},"
+            + "{\"t\":1000,\"type\":\"playerSpeed\",\"speed\":0.04,\"duration\":200},"
+            + "{\"t\":3000,\"type\":\"playerSpeed\",\"speed\":1,\"duration\":400}]}");
         var sev = new LevelEvaluator(ev2);
         Near(sev.SwayAt(500).Rotation, 1, "sway rotation peaks a quarter period in", 1e-9);
         Near(sev.SwayAt(600).X, 5 * Math.Sin(2 * Math.PI * 600 / 2400), "sway x uses its own period", 1e-9);
         Near(sev.SwayAt(4500).Rotation, 0.5 * Math.Sin(2 * Math.PI * 4500 / 2000), "a later sway blends in over its duration", 1e-9);
         Near(sev.SwayAt(6500).Rotation, 0, "sway can be turned off", 1e-9);
         Check(ev2.Events.Exists(e => e.Type == EventType.Sound && e.Sound == "playerDeath" && Math.Abs(e.Volume - 0.5) < 1e-9), "sound event parses");
+        Near(sev.PlayerSpeedAt(500), 1, "players move normally before any playerSpeed event", 1e-12);
+        Near(sev.PlayerSpeedAt(1100), 1 + (0.04 - 1) * 0.5, "player speed blends down", 1e-9);
+        Near(sev.PlayerSpeedAt(2000), 0.04, "players are slowed", 1e-12);
+        Near(sev.PlayerSpeedAt(3200), 0.04 + (1 - 0.04) * 0.5, "player speed blends back up", 1e-9);
+        Near(sev.PlayerSpeedAt(5000), 1, "players move normally again", 1e-12);
     }
 
     private static string F(double v) => v.ToString("0.######", CultureInfo.InvariantCulture);

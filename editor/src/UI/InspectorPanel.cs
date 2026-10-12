@@ -410,7 +410,7 @@ public partial class InspectorPanel : PanelContainer
     {
         box.AddChild(UiTheme.Heading("Scene event", 12, UiTheme.Pink));
         Row("Type", Options(EditEvent.Types, () => e.Type, v => e.Type = v, "Event type",
-            new[] { "Camera shake", "Screen flash", "Background color", "Camera sway", "Game sound" }));
+            new[] { "Camera shake", "Screen flash", "Background color", "Camera sway", "Game sound", "Player speed" }));
         Row("Time", Num(() => e.T, v => e.T = Math.Max(0, v), "Event time", 1, 0, 10000000, " ms"));
         Row("Duration", Num(() => e.Duration, v => e.Duration = Math.Max(0, v), "Event duration", 1, 0, 100000, " ms"));
         switch (e.Type)
@@ -441,6 +441,11 @@ public partial class InspectorPanel : PanelContainer
                 Row("Sound", Options(EditEvent.Sounds, () => e.Sound, v => e.Sound = v, "Sound",
                     new[] { "Player death", "Player hit", "Player respawn", "Explosion" }));
                 Row("Volume", Num(() => e.Volume, v => e.Volume = Math.Clamp(v, 0, 1), "Sound volume", 0.05, 0, 1));
+                break;
+            case "playerSpeed":
+                box.AddChild(UiTheme.Small("From this time on the players move at this part of their normal speed (dashes too), until the next player speed event. Near 0 they are rooted but still turn in place. Duration blends from the previous speed. Only in the game."));
+                Row("Speed", Num(() => e.Speed, v => e.Speed = Math.Clamp(v, 0, 2), "Player speed", 0.01, 0, 2), "1 is normal, 0.5 half speed, 0 rooted.");
+                Row("Ease", Options(Eases, () => e.Ease, v => e.Ease = v, "Ease"));
                 break;
         }
         Buttons(Btn("Move to playhead", () => S.Edit("Move event", () => e.T = S.Playhead)), Btn("Delete", () => App.Instance.DeleteSelection()));
