@@ -216,6 +216,16 @@ public sealed class EditorState
     }
     public string PreviewError { get; private set; }
 
+    /// <summary>The random roll the stage shows (the game picks a new one for every attempt).</summary>
+    public int RandomSeed { get; private set; }
+
+    public void Reroll()
+    {
+        RandomSeed = new Random().Next(1, int.MaxValue);
+        if (evaluator != null) evaluator.Seed = RandomSeed;
+        DocChanged?.Invoke();
+    }
+
     /// <summary>
     /// The level as the game will see it: the document is written to JSON and read back with the
     /// loader's own parser, then evaluated with the loader's own evaluator.
@@ -239,6 +249,7 @@ public sealed class EditorState
                 }
                 previewVersion = Version;
                 evaluator.Players = StandIn;
+                evaluator.Seed = RandomSeed;
             }
             return evaluator;
         }

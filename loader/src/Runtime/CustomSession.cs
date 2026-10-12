@@ -13,6 +13,8 @@ internal static class CustomSession
     public static bool Active { get; private set; }
     public static LoadedLevel Level { get; private set; }
     public static ModelStoryCheckpoint Model { get; private set; }
+    /// <summary>The song time the level was launched from (0, or a checkpoint / test-from-here time).</summary>
+    public static double StartSongMs { get; set; }
 
     private static string progressSnapshot;
 

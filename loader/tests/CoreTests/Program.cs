@@ -293,12 +293,51 @@ internal static class Program
         for (int i = 0; i < Math.Min(3, dashes.Count); i++)
             Near(dashes[i], 500 + 1000 * i, $"dash {i + 1} lands on its beat", ImposterSim.StepMs);
 
+        // Random per play: offsets from a seed, shared by seed name; choice groups pick one variant.
+        var rl = Mini("{\"id\":\"a\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":5000,\"random\":{\"y\":[-300,300],\"rot\":[0,360],\"seed\":\"s\"},\"tracks\":{\"x\":[[0,100]],\"y\":[[0,10]]}},"
+            + "{\"id\":\"b\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":5000,\"random\":{\"y\":[-300,300],\"seed\":\"s\"}},"
+            + "{\"id\":\"c\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":5000,\"choice\":{\"group\":\"g\",\"count\":3,\"show\":[0]}},"
+            + "{\"id\":\"d\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":5000,\"choice\":{\"group\":\"g\",\"count\":3,\"show\":[1]}},"
+            + "{\"id\":\"e\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":5000,\"choice\":{\"group\":\"g\",\"count\":3,\"show\":[2]}},"
+            + "{\"id\":\"f\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":5000,\"choice\":[{\"group\":\"g\",\"count\":3,\"hide\":[0]},{\"group\":\"h\",\"count\":1,\"show\":[0]}]},"
+            + "{\"id\":\"i\",\"parent\":\"a\",\"shape\":{\"type\":\"rect\"},\"start\":1000,\"end\":5000,\"imposter\":{\"mode\":\"straight\",\"speed\":0,\"dashSpeed\":0,\"firstDash\":99999},\"tracks\":{\"x\":[[0,5]]}}");
+        var randEv = new LevelEvaluator(rl);
+        Near(LevelEvaluator.Random01(0, "x"), LevelEvaluator.Random01(0, "x"), "random numbers repeat for the same seed and name", 0);
+        Check(LevelEvaluator.Random01(1, "x") != LevelEvaluator.Random01(2, "x"), "seeds give different numbers");
+        var seenRolls = new HashSet<string>();
+        bool shared = true, inRange = true, oneOf = true, follows = true, andWorks = true;
+        for (int sd = 0; sd < 40; sd++)
+        {
+            randEv.Seed = sd;
+            var ra = rl.Objects[0]; var rb = rl.Objects[1];
+            shared &= ra.OffY == rb.OffY;
+            inRange &= ra.OffY >= -300 && ra.OffY < 300 && ra.OffRot >= 0 && ra.OffRot < 360;
+            var shown = new List<string>();
+            for (int k = 2; k <= 4; k++) if (!rl.Objects[k].Hidden) shown.Add(rl.Objects[k].Id);
+            oneOf &= shown.Count == 1;
+            if (shown.Count == 1) seenRolls.Add(shown[0]);
+            andWorks &= rl.Objects[5].Hidden == !rl.Objects[2].Hidden;
+            var pa = LevelEvaluator.TransformAt(ra, 2000).Apply(0, 0);
+            Near(pa.Y, 10 + ra.OffY, "random y adds to the track", 1e-9);
+            var isim = randEv.SimAt(rl.Objects[6], 1500);
+            follows &= Math.Abs(isim.X - (pa.X + 5)) < 1e-6 && Math.Abs(isim.Y - pa.Y) < 1e-6;
+        }
+        Check(shared, "objects with the same seed name share offsets");
+        Check(inRange, "offsets stay in their range");
+        Check(oneOf, "a choice group shows exactly one of its variants");
+        Check(seenRolls.Count == 3, $"every variant comes up over 40 seeds (got {seenRolls.Count})");
+        Check(andWorks, "all of an object's choices must hold");
+        Check(follows, "an imposter with an object parent spawns where that object is");
+        var hiddenItems = new List<DrawItem>();
+        randEv.Collect(2000, hiddenItems);
+        Check(hiddenItems.All(it => !it.Object.Hidden), "hidden objects are not drawn");
+
         // Sway and sound events.
         var ev2 = LevelData.Parse("{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"events\":["
             + "{\"t\":0,\"type\":\"sway\",\"rotation\":1,\"x\":5,\"period\":2000,\"periodX\":2400},"
             + "{\"t\":4000,\"type\":\"sway\",\"rotation\":0,\"duration\":1000},"
             + "{\"t\":100,\"type\":\"sound\",\"sound\":\"playerDeath\",\"volume\":0.5},"
-            + "{\"t\":1000,\"type\":\"playerSpeed\",\"speed\":0.04,\"duration\":200},"
+            + "{\"t\":1000,\"type\":\"playerSpeed\",\"speed\":0.04,\"turn\":0.1,\"duration\":200},"
             + "{\"t\":3000,\"type\":\"playerSpeed\",\"speed\":1,\"duration\":400}]}");
         var sev = new LevelEvaluator(ev2);
         Near(sev.SwayAt(500).Rotation, 1, "sway rotation peaks a quarter period in", 1e-9);
@@ -309,6 +348,8 @@ internal static class Program
         Near(sev.PlayerSpeedAt(500), 1, "players move normally before any playerSpeed event", 1e-12);
         Near(sev.PlayerSpeedAt(1100), 1 + (0.04 - 1) * 0.5, "player speed blends down", 1e-9);
         Near(sev.PlayerSpeedAt(2000), 0.04, "players are slowed", 1e-12);
+        Near(sev.PlayerTurnAt(2000), 0.1, "players turn slowly", 1e-12);
+        Near(sev.PlayerTurnAt(5000), 1, "players turn at once again", 1e-12);
         Near(sev.PlayerSpeedAt(3200), 0.04 + (1 - 0.04) * 0.5, "player speed blends back up", 1e-9);
         Near(sev.PlayerSpeedAt(5000), 1, "players move normally again", 1e-12);
     }

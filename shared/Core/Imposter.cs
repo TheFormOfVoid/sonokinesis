@@ -135,6 +135,7 @@ public sealed class ImposterSim
     private readonly LevelObject obj;
     private readonly ImposterBehavior b;
     private readonly double beatMs;
+    private readonly Func<double, Vec2?> parentOrigin;
 
     // Simulation state after `steps` steps (local time steps * StepMs since activation, -1 = not started).
     private long steps = -1;
@@ -147,11 +148,13 @@ public sealed class ImposterSim
     public readonly List<Pulse> Pulses = new();
 
     /// <param name="bpm">The level's tempo, for dashes on the beat.</param>
-    public ImposterSim(LevelObject o, double bpm = 120)
+    /// <param name="parentOrigin">For an object parent: where it is at a song time (null if nowhere).</param>
+    public ImposterSim(LevelObject o, double bpm = 120, Func<double, Vec2?> parentOrigin = null)
     {
         obj = o;
         b = o.Imposter;
         beatMs = 60000 / Math.Clamp(bpm, 1, 1000);
+        this.parentOrigin = parentOrigin;
     }
 
     /// <summary>The current frame: the last step, moved on by its velocity for the time since.</summary>
@@ -167,9 +170,9 @@ public sealed class ImposterSim
         {
             // Warning: sit at the spawn point and grow in; chasers already face the nearest player.
             steps = -1;
-            var a = Anchor(players);
-            X = a.X + obj.X.Evaluate(localT);
-            Y = a.Y + obj.Y.Evaluate(localT);
+            var a = Anchor(players, obj.Start + localT);
+            X = a.X + obj.X.Evaluate(localT) + obj.OffX;
+            Y = a.Y + obj.Y.Evaluate(localT) + obj.OffY;
             KeepOnScreen(ref X, ref Y);
             double h = b.Angle;
             if (b.Mode == ImposterMode.Chase && Nearest(players, X, Y, out var px, out var py)) h = Deg(Math.Atan2(py - Y, px - X));
@@ -199,9 +202,9 @@ public sealed class ImposterSim
     private void Reset(IPlayerSource players)
     {
         steps = 0;
-        var anchor = Anchor(players);
-        x = anchor.X + obj.X.Evaluate(obj.Warn);
-        y = anchor.Y + obj.Y.Evaluate(obj.Warn);
+        var anchor = Anchor(players, obj.Start + obj.Warn);
+        x = anchor.X + obj.X.Evaluate(obj.Warn) + obj.OffX;
+        y = anchor.Y + obj.Y.Evaluate(obj.Warn) + obj.OffY;
         KeepOnScreen(ref x, ref y);
         heading = b.Angle;
         if (b.Mode == ImposterMode.Chase && Nearest(players, x, y, out var px, out var py)) heading = Deg(Math.Atan2(py - y, px - x));
@@ -388,11 +391,14 @@ public sealed class ImposterSim
 
     /// <summary>
     /// An imposter whose parent is a player spawns relative to that player (its x/y tracks are the
-    /// offset). Without such a player the offset is taken from the centre of the screen.
+    /// offset); without such a player the offset is taken from the centre of the screen. One whose
+    /// parent is an object spawns relative to where that object is (its rotation is not applied).
     /// </summary>
-    private Vec2 Anchor(IPlayerSource players)
+    private Vec2 Anchor(IPlayerSource players, double songT)
     {
-        if (obj.PlayerAnchor <= 0 || players == null) return new Vec2(0, 0);
+        if (obj.PlayerAnchor <= 0)
+            return obj.Parent != null && parentOrigin?.Invoke(songT) is Vec2 at ? at : new Vec2(0, 0);
+        if (players == null) return new Vec2(0, 0);
         for (int i = 0; i < players.Count; i++)
         {
             var p = players.Get(i);

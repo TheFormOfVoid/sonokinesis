@@ -114,12 +114,33 @@ public sealed class LevelObject
     public Track Opacity = new() { Default = 1 };
     /// <summary>Position in the file; ties in layer keep this order.</summary>
     public int FileIndex;
+    /// <summary>Random offsets per play: [min, max] added to every x / y / rot value. Null: none.</summary>
+    public double[] RandomX, RandomY, RandomRot;
+    /// <summary>Objects with the same random seed name get the same offsets (default: the id).</summary>
+    public string RandomSeed;
+    /// <summary>All must hold for the object to exist in a play. Null: always.</summary>
+    public RandomChoice[] Choices;
+
+    /// <summary>The current play's offsets and choice (set by LevelEvaluator.Seed).</summary>
+    public double OffX, OffY, OffRot;
+    public bool Hidden;
 
     public double ActiveStart => Start + Warn;
     public double ActiveEnd => End - Outro;
 }
 
-public enum EventType { Shake, Flash, Background, Sway, Sound, PlayerSpeed }
+/// <summary>
+/// One roll per play for a named group: a whole number from 0 to Count - 1. The object exists only
+/// when the roll is in Show (if given) and not in Hide.
+/// </summary>
+public sealed class RandomChoice
+{
+    public string Group = "";
+    public int Count = 2;
+    public int[] Show, Hide;
+}
+
+public enum EventType { Shake, Flash, Background, Sway, Sound, PlayerSpeed, Credits }
 
 public sealed class LevelEvent
 {
@@ -137,6 +158,8 @@ public sealed class LevelEvent
     public double Volume = 1;
     /// <summary>PlayerSpeed: how fast the players move, as a part of their normal speed (0..2).</summary>
     public double Speed = 1;
+    /// <summary>PlayerSpeed: the part of the way to their heading the players turn each 1/60 s (1 = at once).</summary>
+    public double Turn = 1;
 }
 
 public sealed class LevelMeta
@@ -242,6 +265,7 @@ public sealed class LevelData
                     Sound = Str(e, "sound"),
                     Volume = Math.Clamp(Num(e, "volume", 1), 0, 1),
                     Speed = Math.Clamp(Num(e, "speed", 1), 0, 2),
+                    Turn = Math.Clamp(Num(e, "turn", 1), 0.001, 1),
                 };
                 ev.Period = Math.Max(100, Num(e, "period", 2000));
                 ev.PeriodX = Math.Max(100, Num(e, "periodX", ev.Period * 1.08));
@@ -254,6 +278,7 @@ public sealed class LevelData
                     case "sway": ev.Type = EventType.Sway; break;
                     case "sound": if (string.IsNullOrEmpty(ev.Sound)) continue; ev.Type = EventType.Sound; break;
                     case "playerSpeed": ev.Type = EventType.PlayerSpeed; break;
+                    case "credits": ev.Type = EventType.Credits; break;
                     default: continue;
                 }
                 level.Events.Add(ev);
@@ -291,6 +316,22 @@ public sealed class LevelData
         if (o.TryGetProperty("imposter", out var imp) && imp.ValueKind == JsonValueKind.Object) obj.Imposter = ImposterBehavior.Parse(imp);
         obj.PlayerAnchor = PlayerAnchorOf(obj.ParentId);
         if (obj.ColorFromPlayer) obj.Color = DefaultPlayerColor;
+        if (o.TryGetProperty("random", out var rnd) && rnd.ValueKind == JsonValueKind.Object)
+        {
+            obj.RandomX = Range(rnd, "x");
+            obj.RandomY = Range(rnd, "y");
+            obj.RandomRot = Range(rnd, "rot");
+            obj.RandomSeed = Str(rnd, "seed");
+        }
+        if (o.TryGetProperty("choice", out var ch))
+        {
+            var list = new List<RandomChoice>();
+            if (ch.ValueKind == JsonValueKind.Object) list.Add(ParseChoice(ch));
+            else if (ch.ValueKind == JsonValueKind.Array)
+                foreach (var c in ch.EnumerateArray()) if (c.ValueKind == JsonValueKind.Object) list.Add(ParseChoice(c));
+            list.RemoveAll(c => string.IsNullOrEmpty(c.Group));
+            if (list.Count > 0) obj.Choices = list.ToArray();
+        }
         if (o.TryGetProperty("tracks", out var tr))
         {
             ReadTrack(tr, "x", obj.X);
@@ -301,6 +342,32 @@ public sealed class LevelData
             ReadTrack(tr, "opacity", obj.Opacity);
         }
         return obj;
+    }
+
+    private static double[] Range(JsonElement e, string name)
+    {
+        if (!e.TryGetProperty(name, out var r) || r.ValueKind != JsonValueKind.Array || r.GetArrayLength() < 2) return null;
+        if (r[0].ValueKind != JsonValueKind.Number || r[1].ValueKind != JsonValueKind.Number) return null;
+        return new[] { r[0].GetDouble(), r[1].GetDouble() };
+    }
+
+    private static RandomChoice ParseChoice(JsonElement c)
+    {
+        return new RandomChoice
+        {
+            Group = Str(c, "group") ?? "",
+            Count = Math.Clamp((int)Num(c, "count", 2), 1, 1000),
+            Show = Ints(c, "show"),
+            Hide = Ints(c, "hide"),
+        };
+    }
+
+    private static int[] Ints(JsonElement e, string name)
+    {
+        if (!e.TryGetProperty(name, out var a) || a.ValueKind != JsonValueKind.Array) return null;
+        var list = new List<int>();
+        foreach (var v in a.EnumerateArray()) if (v.ValueKind == JsonValueKind.Number) list.Add((int)v.GetDouble());
+        return list.ToArray();
     }
 
     public static ShapeDef ParseShape(JsonElement sh)

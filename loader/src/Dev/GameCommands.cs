@@ -17,8 +17,13 @@ public static class GameCommands
     private static readonly System.Collections.Generic.List<string> clockSamples = new();
     private static int clockFrames;
 
+    private static int shotIn;
+    private static string shotName;
+
     public static void Tick()
     {
+        if (shotIn > 0 && --shotIn == 0)
+            UnityEngine.ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(Plugin.DataDir, "shots", shotName + ".png"), 1);
         if (frameWatch > 0) { frameWatch--; frameSamples.Add(UnityEngine.Time.unscaledDeltaTime * 1000f); }
         if (clockFrames > 0)
         {
@@ -33,7 +38,9 @@ public static class GameCommands
             var layers = CameraFlashContainers.instance;
             var c = layers.container;
             var m = layers.enemyVisual.transform.concatenedMatrix;
-            camSamples.Add($"f={UnityEngine.Time.frameCount} container x={c.x:0.##} y={c.y:0.##} sx={c.scaleX:0.###} rot={c.rotation:0.##} | enemyLayer concat={DevConsole.Fmt(m, 0)}");
+            var cam = CameraFlash.mainCamera;
+            var uc = UnityEngine.Camera.main;
+            camSamples.Add($"f={UnityEngine.Time.frameCount} layer t=({m.m03:0.##},{m.m13:0.##}) unityCam=({uc?.transform.position.x:0.##},{uc?.transform.position.y:0.##}) container x={c.x:0.##} y={c.y:0.##} rot={c.rotation:0.##}");
         }
         catch (System.Exception e) { camSamples.Add("!" + e.Message); }
     }
@@ -127,6 +134,24 @@ public static class GameCommands
         {
             CameraFlash.mainCamera.kickback(float.Parse(a[0]), int.Parse(a[1]));
             return "kicked";
+        };
+        DevConsole.Commands["elastic"] = a =>
+        {
+            // elastic X Y TIME: the game's elastic camera kick, sampled like camwatch.
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            camSamples.Clear();
+            camFrames = 60;
+            CameraEffectKickBackElastic.addToActor(CameraFlash.mainCamera, float.Parse(a[0], inv), float.Parse(a[1], inv), float.Parse(a[2], inv));
+            return "elastic kick";
+        };
+        DevConsole.Commands["kickshot"] = a =>
+        {
+            // kickshot ANGLE FORCE NAME [FRAMES]: a game camera kick, then a screenshot a few frames later.
+            System.IO.Directory.CreateDirectory(System.IO.Path.Combine(Plugin.DataDir, "shots"));
+            if (int.Parse(a[1]) > 0) CameraFlash.mainCamera.kickback(float.Parse(a[0], System.Globalization.CultureInfo.InvariantCulture), int.Parse(a[1]));
+            shotName = a[2];
+            shotIn = a.Length > 3 ? int.Parse(a[3]) : 4;
+            return "kick and shot";
         };
         DevConsole.Commands["camwatch"] = a =>
         {
@@ -318,7 +343,6 @@ public static class GameCommands
 
         DevConsole.Commands["herospeed"] = a =>
         {
-            if (a.Length > 0) Runtime.GameBridge.ScaleHeroSpeed(float.Parse(a[0], System.Globalization.CultureInfo.InvariantCulture));
             var sb = new StringBuilder();
             var cols = Hero.allCollisionEnemy;
             for (int i = 0; cols != null && i < cols.length; i++)
@@ -328,6 +352,33 @@ public static class GameCommands
                 sb.AppendLine($"[{i}] speed={hc.speed} normal={hc.speedNormal} dash={hc.speedDash} dashing={hc.isDashing} input=({hc.moveInput?.x:0.##},{hc.moveInput?.y:0.##}) noMove={hc.NoMoveFrame}");
             }
             return sb.ToString();
+        };
+
+        DevConsole.Commands["herorender"] = _ =>
+        {
+            var sb = new StringBuilder();
+            var cols = Hero.allCollisionEnemy;
+            for (int i = 0; cols != null && i < cols.length; i++)
+            {
+                var r = cols[i].actor?.TryCast<Hero>()?.heroRenderer;
+                if (r == null) continue;
+                foreach (var (n, mc) in new[] { ("container", r.heroContainerMc), ("hero", r.heroMc), ("back", r.heroBackMc) })
+                    if (mc != null) sb.AppendLine($"[{i}] {n}: rot={mc.rotation:0.##} sx={mc.scaleX:0.###} sy={mc.scaleY:0.###} x={mc.x:0.#} y={mc.y:0.#}");
+                var ph = cols[i].actor.physicComponent;
+                if (ph != null) sb.AppendLine($"[{i}] physics v=({ph.vx:0.##},{ph.vy:0.##}) angle={ph.getAngle():0.##} rotation={ph.getRotation():0.##}");
+            }
+            return sb.ToString();
+        };
+
+        DevConsole.Commands["playerspeed"] = a =>
+        {
+            // playerspeed <speed> [turn] | playerspeed level
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            bool level = a.Length == 0 || a[0] == "level";
+            Runtime.BeatformRuntime.PlayerSpeedOverride = level ? null : float.Parse(a[0], inv);
+            Runtime.BeatformRuntime.PlayerTurnOverride = level ? null : a.Length > 1 ? float.Parse(a[1], inv) : 1;
+            return level ? "player speed from the level"
+                : $"player speed {Runtime.BeatformRuntime.PlayerSpeedOverride} turn {Runtime.BeatformRuntime.PlayerTurnOverride}";
         };
 
         DevConsole.Commands["hit"] = a =>

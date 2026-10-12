@@ -23,11 +23,13 @@ public class Plugin : BasePlugin
         Settings.Bind(Config);
         var harmony = new HarmonyLib.Harmony(Guid);
         harmony.PatchAll(typeof(Plugin).Assembly);
+        Patches.CreditsPatches.Apply(harmony);
         AddComponent<Runtime.BeatformRuntime>();
         if (Settings.DevConsole)
         {
             AddComponent<Dev.DevConsole>();
             Dev.SoundLog.Apply(harmony);
+            Dev.FakeInput.Apply(harmony);
         }
         Runtime.EditorBridge.Status("ready", "loader started");
         Log.LogInfo($"{Name} {Version} loaded");

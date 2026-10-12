@@ -37,6 +37,7 @@ internal sealed class Launcher
         Error = null;
         hard = hardMode;
         this.startAtSongMs = startAtSongMs;
+        CustomSession.StartSongMs = startAtSongMs;
         LoadingTitle = entry.Meta.Title;
         loader = new LevelLoader(entry.Folder);
         Enter(State.Loading);

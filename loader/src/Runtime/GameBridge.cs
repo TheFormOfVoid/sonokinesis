@@ -85,35 +85,18 @@ internal static class GameBridge
         catch { }
     }
 
-    /// <summary>Each player's own movement and dash speeds, kept while a level slows them down.</summary>
-    private static readonly Dictionary<IntPtr, (float Normal, float Dash)> heroSpeeds = new();
-
-    /// <summary>
-    /// Sets how fast the players move, as a part of their normal speed (playerSpeed events). Input
-    /// still turns them, so slowed almost to a stop they spin in place.
-    /// </summary>
-    public static void ScaleHeroSpeed(float k)
+    /// <summary>The physics components that move the players (for playerSpeed events).</summary>
+    public static void HeroPhysics(HashSet<IntPtr> output)
     {
+        output.Clear();
         try
         {
             var cols = Hero.allCollisionEnemy;
-            if (cols == null) return;
-            for (int i = 0; i < cols.length; i++)
+            for (int i = 0; cols != null && i < cols.length; i++)
             {
-                var hc = cols[i]?.actor?.TryCast<Hero>()?.controlComponent;
-                if (hc == null) continue;
-                if (!heroSpeeds.TryGetValue(hc.Pointer, out var own))
-                {
-                    if (k == 1) continue;
-                    heroSpeeds[hc.Pointer] = own = (hc.speedNormal, hc.speedDash);
-                }
-                hc.speedNormal = own.Normal * k;
-                hc.speedDash = own.Dash * k;
-                // The game eases its current speed towards these; slowing down takes hold at once.
-                float top = hc.isDashing ? hc.speedDash : hc.speedNormal;
-                if (hc.speed > top) hc.speed = top;
+                var physics = cols[i]?.actor?.physicComponent;
+                if (physics != null) output.Add(physics.Pointer);
             }
-            if (k == 1) heroSpeeds.Clear();
         }
         catch { }
     }

@@ -99,6 +99,18 @@ public class BeatformRuntime : MonoBehaviour
         bool frozen = GameBridge.IsPausedOrRewinding(logic);
         double t = clock.Next(level.SongTime(audioMs), Time.unscaledTimeAsDouble * 1000, Time.unscaledDeltaTime * 1000, frozen);
 
+        // A new roll of the level's random parts for every attempt: at the start and whenever playback
+        // has gone back (a checkpoint restart), once it runs again.
+        if (!frozen)
+        {
+            if (double.IsNaN(furthestSongTime) || t < furthestSongTime - 1000)
+            {
+                level.Evaluator.Seed = seeds.Next(1, int.MaxValue);
+                furthestSongTime = t;
+            }
+            else furthestSongTime = Math.Max(furthestSongTime, t);
+        }
+
         GameBridge.HideGameBackground();
         if (!renderer.Visible) renderer.SetVisible(true);
         long t0 = Settings.DevConsole ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
@@ -122,7 +134,8 @@ public class BeatformRuntime : MonoBehaviour
             RunSounds(level.Data, t);
         }
         ApplySway(level.Evaluator.SwayAt(t));
-        ApplyPlayerSpeed((float)level.Evaluator.PlayerSpeedAt(t));
+        ApplyPlayerSpeed(frozen ? 1 : PlayerSpeedOverride ?? (float)level.Evaluator.PlayerSpeedAt(t),
+            frozen ? 1 : PlayerTurnOverride ?? (float)level.Evaluator.PlayerTurnAt(t));
         if (Settings.DevConsole)
         {
             double ms = 1000.0 / System.Diagnostics.Stopwatch.Frequency;
@@ -163,16 +176,22 @@ public class BeatformRuntime : MonoBehaviour
         }
     }
 
+    private double furthestSongTime = double.NaN;
+    private readonly System.Random seeds = new();
     private float playerSpeed = 1;
+    /// <summary>Dev console: forces the players' speed and turning instead of the level's events.</summary>
+    internal static float? PlayerSpeedOverride, PlayerTurnOverride;
 
     /// <summary>
-    /// playerSpeed events: applied every frame while the players are slowed (so players who join or
-    /// come back are slowed too), and once more when they are back to normal.
+    /// playerSpeed events: the part of each step's movement the players keep and how quickly they turn
+    /// (see HeroMovementPatches), set every frame. Not while paused or rewinding.
     /// </summary>
-    private void ApplyPlayerSpeed(float speed)
+    private void ApplyPlayerSpeed(float speed, float turn = 1)
     {
+        Patches.HeroMovementPatches.Turn = turn;
         if (speed == 1 && playerSpeed == 1) return;
-        GameBridge.ScaleHeroSpeed(speed);
+        Patches.HeroMovementPatches.Scale = speed;
+        GameBridge.HeroPhysics(Patches.HeroMovementPatches.HeroPhysics);
         playerSpeed = speed;
     }
 
@@ -206,7 +225,10 @@ public class BeatformRuntime : MonoBehaviour
         }
         else if (double.IsNaN(lastSongTime) || t < lastSongTime)
         {
+            // A restart or a jump back: start over, including the kick timer (which would otherwise
+            // hold back every shake until playback passes where the last attempt got to).
             activeShakes.Clear();
+            nextShakeKick = 0;
         }
         if (activeShakes.Count == 0 || t < nextShakeKick) return;
         nextShakeKick = t + 50;
@@ -239,10 +261,12 @@ public class BeatformRuntime : MonoBehaviour
     {
         renderer.SetVisible(false);
         activeShakes.Clear();
+        nextShakeKick = 0;
         lastSongTime = double.NaN;
         clock.Reset();
         ResetSway();
         ApplyPlayerSpeed(1);
+        furthestSongTime = double.NaN;
         sessionStartedAt = 0;
         sessionSeenInGame = false;
         CustomSession.End();

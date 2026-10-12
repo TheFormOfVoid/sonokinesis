@@ -264,6 +264,7 @@ public partial class InspectorPanel : PanelContainer
         Row("Layer", Num(() => o.Layer, v => o.Layer = (int)v, "Layer", 1, -100, 100), "Higher layers draw on top.");
 
         BuildImposter(o);
+        BuildRandom(o);
 
         Section("Parent");
         var others = S.Doc.Objects.Where(x => x.Id != o.Id && !IsDescendant(x, o)).ToList();
@@ -281,6 +282,55 @@ public partial class InspectorPanel : PanelContainer
         Section("Animation at the playhead");
         box.AddChild(UiTheme.Small("Values at the playhead. Dragging on the stage or typing here writes a key at the playhead once a track has two or more keys; with one key the whole object changes. Hold R while the song plays to record a path with the mouse."));
         foreach (var track in EditObject.TrackNames) BuildTrack(o, track);
+    }
+
+    /// <summary>A [min, max] range that is off (null) while both ends are 0.</summary>
+    private void RangeRow(string label, Func<double[]> get, Action<double[]> set, string undo, double step, string suffix, string tooltip)
+    {
+        var pair = new HBoxContainer();
+        double Lo() => get()?[0] ?? 0;
+        double Hi() => get()?[1] ?? 0;
+        void Put(double lo, double hi) => set(lo == 0 && hi == 0 ? null : new[] { lo, hi });
+        var a = Num(Lo, v => Put(v, Hi()), undo, step, -100000, 100000, suffix);
+        var b = Num(Hi, v => Put(Lo(), v), undo, step, -100000, 100000, suffix);
+        a.SizeFlagsHorizontal = b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        pair.AddChild(a);
+        pair.AddChild(b);
+        Row(label, pair, tooltip);
+    }
+
+    private static string IntList(List<int> l) => string.Join(", ", l);
+
+    private static List<int> ParseInts(string s)
+    {
+        var list = new List<int>();
+        foreach (var part in (s ?? "").Split(',', ' ', ';'))
+            if (int.TryParse(part, out int v)) list.Add(v);
+        return list;
+    }
+
+    private void BuildRandom(EditObject o)
+    {
+        Section("Random each play");
+        box.AddChild(UiTheme.Small("Picked again on every attempt in the game. The stage shows one roll; Roll again shows another."));
+        RangeRow("Offset x", () => o.RandomX, v => o.RandomX = v, "Random x", 1, "", "Added to every x key: a random amount between these two (both 0: off).");
+        RangeRow("Offset y", () => o.RandomY, v => o.RandomY = v, "Random y", 1, "", "Added to every y key: a random amount between these two (both 0: off).");
+        RangeRow("Turn", () => o.RandomRot, v => o.RandomRot = v, "Random rotation", 1, "°", "Added to every rotation key. On a parent it turns its children around it.");
+        Row("Same as", Text(() => o.RandomSeed, v => o.RandomSeed = string.IsNullOrWhiteSpace(v) ? null : v.Trim(), "Random seed"),
+            "Objects with the same name here get the same random amounts (empty: this object's own).");
+        for (int i = 0; i < o.Choices.Count; i++)
+        {
+            var c = o.Choices[i];
+            int index = i;
+            Row("Only when", Text(() => c.Group, v => c.Group = v, "Choice group"), "A group rolls one number from 0 to count - 1 per play; every object of the group sees the same roll.");
+            Row("  of", Num(() => c.Count, v => c.Count = (int)Math.Clamp(v, 1, 1000), "Choice count", 1, 1, 1000, " rolls"));
+            Row("  rolled", Text(() => IntList(c.Show), v => c.Show = ParseInts(v), "Choice show"), "Exists only on these rolls (empty: any).");
+            Row("  not", Text(() => IntList(c.Hide), v => c.Hide = ParseInts(v), "Choice hide"), "Never exists on these rolls.");
+            Buttons(Btn("Remove condition", () => S.Edit("Remove condition", () => o.Choices.RemoveAt(index))));
+        }
+        Buttons(Btn("Add condition", () => S.Edit("Add condition", () => o.Choices.Add(new ChoiceSpec())),
+                "Make the object exist only on some rolls of a group, for example one of four shapes."),
+            Btn("Roll again", () => S.Reroll(), "Preview another random roll of the whole level."));
     }
 
     private void BuildImposter(EditObject o)
@@ -410,7 +460,7 @@ public partial class InspectorPanel : PanelContainer
     {
         box.AddChild(UiTheme.Heading("Scene event", 12, UiTheme.Pink));
         Row("Type", Options(EditEvent.Types, () => e.Type, v => e.Type = v, "Event type",
-            new[] { "Camera shake", "Screen flash", "Background color", "Camera sway", "Game sound", "Player speed" }));
+            new[] { "Camera shake", "Screen flash", "Background color", "Camera sway", "Game sound", "Player speed", "Title card" }));
         Row("Time", Num(() => e.T, v => e.T = Math.Max(0, v), "Event time", 1, 0, 10000000, " ms"));
         Row("Duration", Num(() => e.Duration, v => e.Duration = Math.Max(0, v), "Event duration", 1, 0, 100000, " ms"));
         switch (e.Type)
@@ -442,9 +492,13 @@ public partial class InspectorPanel : PanelContainer
                     new[] { "Player death", "Player hit", "Player respawn", "Explosion" }));
                 Row("Volume", Num(() => e.Volume, v => e.Volume = Math.Clamp(v, 0, 1), "Sound volume", 0.05, 0, 1));
                 break;
+            case "credits":
+                box.AddChild(UiTheme.Small("The game's own title card (the song's title and artist from the level settings) shows at this time instead of at the start. Only in the game."));
+                break;
             case "playerSpeed":
                 box.AddChild(UiTheme.Small("From this time on the players move at this part of their normal speed (dashes too), until the next player speed event. Near 0 they are rooted but still turn in place. Duration blends from the previous speed. Only in the game."));
                 Row("Speed", Num(() => e.Speed, v => e.Speed = Math.Clamp(v, 0, 2), "Player speed", 0.01, 0, 2), "1 is normal, 0.5 half speed, 0 rooted.");
+                Row("Turning", Num(() => e.Turn, v => e.Turn = Math.Clamp(v, 0.001, 1), "Player turning", 0.05, 0.001, 1), "The part of the way to their direction the players turn each frame. 1 is at once.");
                 Row("Ease", Options(Eases, () => e.Ease, v => e.Ease = v, "Ease"));
                 break;
         }

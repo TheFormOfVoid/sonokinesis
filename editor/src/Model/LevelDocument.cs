@@ -81,6 +81,12 @@ public sealed class EditObject
     public Dictionary<string, List<EditKey>> Tracks = new();
     /// <summary>Editor-only: objects made by one pattern share a group id.</summary>
     public string Group;
+    /// <summary>Random offsets per play, [min, max]; null for none.</summary>
+    public double[] RandomX, RandomY, RandomRot;
+    /// <summary>Objects with the same random seed name share their offsets (empty: the id).</summary>
+    public string RandomSeed;
+    /// <summary>All must hold for the object to exist in a play.</summary>
+    public List<ChoiceSpec> Choices = new();
 
     public List<EditKey> Track(string name)
     {
@@ -96,6 +102,10 @@ public sealed class EditObject
         o.Id = newId;
         o.Shape = Shape.Clone();
         o.Imposter = Imposter?.Clone();
+        o.RandomX = (double[])RandomX?.Clone();
+        o.RandomY = (double[])RandomY?.Clone();
+        o.RandomRot = (double[])RandomRot?.Clone();
+        o.Choices = Choices.Select(c => c.Clone()).ToList();
         o.Tracks = new Dictionary<string, List<EditKey>>();
         foreach (var kv in Tracks) o.Tracks[kv.Key] = kv.Value.Select(k => k.Clone()).ToList();
         return o;
@@ -104,9 +114,20 @@ public sealed class EditObject
     public double Duration => End - Start;
 }
 
+/// <summary>A choice condition: the group rolls 0..Count-1 once per play (see the level format).</summary>
+public sealed class ChoiceSpec
+{
+    public string Group = "group";
+    public int Count = 2;
+    public List<int> Show = new() { 0 };
+    public List<int> Hide = new();
+
+    public ChoiceSpec Clone() => new() { Group = Group, Count = Count, Show = new List<int>(Show), Hide = new List<int>(Hide) };
+}
+
 public sealed class EditEvent
 {
-    public static readonly string[] Types = { "shake", "flash", "background", "sway", "sound", "playerSpeed" };
+    public static readonly string[] Types = { "shake", "flash", "background", "sway", "sound", "playerSpeed", "credits" };
     /// <summary>Game sounds a "sound" event can play (see the level format).</summary>
     public static readonly string[] Sounds = { "playerDeath", "playerHit", "playerRespawn", "explosion" };
 
@@ -122,6 +143,8 @@ public sealed class EditEvent
     public double Volume = 1;
     /// <summary>playerSpeed: a part of the players' normal speed (0..2).</summary>
     public double Speed = 0.05;
+    /// <summary>playerSpeed: the part of the way to their heading the players turn each 1/60 s.</summary>
+    public double Turn = 1;
 
     public EditEvent Clone() => (EditEvent)MemberwiseClone();
 }
@@ -262,6 +285,34 @@ public sealed class LevelDocument
         if (!string.IsNullOrEmpty(o.Color)) w.WriteString("color", o.Color);
         if (o.Layer != 0) w.WriteNumber("layer", o.Layer);
         if (!string.IsNullOrEmpty(o.Parent)) w.WriteString("parent", o.Parent);
+        if (o.RandomX != null || o.RandomY != null || o.RandomRot != null)
+        {
+            w.WriteStartObject("random");
+            foreach (var (name, r) in new[] { ("x", o.RandomX), ("y", o.RandomY), ("rot", o.RandomRot) })
+            {
+                if (r == null) continue;
+                w.WriteStartArray(name);
+                Num(w, null, r[0]);
+                Num(w, null, r[1]);
+                w.WriteEndArray();
+            }
+            if (!string.IsNullOrEmpty(o.RandomSeed)) w.WriteString("seed", o.RandomSeed);
+            w.WriteEndObject();
+        }
+        if (o.Choices.Count > 0)
+        {
+            w.WriteStartArray("choice");
+            foreach (var c in o.Choices)
+            {
+                w.WriteStartObject();
+                w.WriteString("group", c.Group ?? "");
+                w.WriteNumber("count", c.Count);
+                if (c.Show.Count > 0) { w.WriteStartArray("show"); foreach (var v in c.Show) w.WriteNumberValue(v); w.WriteEndArray(); }
+                if (c.Hide.Count > 0) { w.WriteStartArray("hide"); foreach (var v in c.Hide) w.WriteNumberValue(v); w.WriteEndArray(); }
+                w.WriteEndObject();
+            }
+            w.WriteEndArray();
+        }
         if (o.Imposter != null)
         {
             var m = o.Imposter;
@@ -327,7 +378,11 @@ public sealed class LevelDocument
                 if (e.Ease != "linear") w.WriteString("ease", e.Ease);
                 break;
             case "sound": w.WriteString("sound", e.Sound ?? ""); Num(w, "volume", e.Volume); break;
-            case "playerSpeed": Num(w, "speed", e.Speed); if (e.Ease != "linear") w.WriteString("ease", e.Ease); break;
+            case "playerSpeed":
+                Num(w, "speed", e.Speed);
+                if (e.Turn < 1) Num(w, "turn", e.Turn);
+                if (e.Ease != "linear") w.WriteString("ease", e.Ease);
+                break;
         }
         w.WriteEndObject();
     }
@@ -406,6 +461,23 @@ public sealed class LevelDocument
                     Parent = (string)o["parent"],
                 };
                 if (o["pivot"] is JsonArray pv && pv.Count >= 2) { eo.PivotX = D(pv[0], 0); eo.PivotY = D(pv[1], 0); }
+                if (o["random"] is JsonObject rnd)
+                {
+                    static double[] Range(JsonNode n) => n is JsonArray a && a.Count >= 2 ? new[] { D(a[0], 0), D(a[1], 0) } : null;
+                    eo.RandomX = Range(rnd["x"]);
+                    eo.RandomY = Range(rnd["y"]);
+                    eo.RandomRot = Range(rnd["rot"]);
+                    eo.RandomSeed = (string)rnd["seed"];
+                }
+                if (o["choice"] is JsonNode chn)
+                {
+                    var list = chn is JsonArray arr ? arr.OfType<JsonObject>() : chn is JsonObject one ? new[] { one } : Enumerable.Empty<JsonObject>();
+                    foreach (var c in list)
+                    {
+                        static List<int> Ints(JsonNode n) => n is JsonArray a ? a.Select(v => (int)D(v, 0)).ToList() : new List<int>();
+                        eo.Choices.Add(new ChoiceSpec { Group = (string)c["group"] ?? "", Count = (int)D(c["count"], 2), Show = Ints(c["show"]), Hide = Ints(c["hide"]) });
+                    }
+                }
                 if (o["imposter"] is JsonObject im)
                 {
                     var m = new ImposterSpec { Mode = (string)im["mode"] == "straight" ? "straight" : "chase" };
@@ -479,6 +551,7 @@ public sealed class LevelDocument
                     Sound = (string)e["sound"] ?? "playerDeath",
                     Volume = D(e["volume"], 1),
                     Speed = D(e["speed"], 1),
+                    Turn = D(e["turn"], 1),
                 });
             }
         }

@@ -72,6 +72,7 @@ public sealed class LevelEvaluator
         foreach (var e in level.Events) if (e.Type == EventType.Background) backgroundEvents.Add(e);
         foreach (var e in level.Events) if (e.Type == EventType.Sway) swayEvents.Add(e);
         foreach (var e in level.Events) if (e.Type == EventType.PlayerSpeed) speedEvents.Add(e);
+        ApplySeed();
         backgroundStartColors = new Rgba[backgroundEvents.Count];
         var cur = level.Background;
         for (int i = 0; i < backgroundEvents.Count; i++)
@@ -82,6 +83,57 @@ public sealed class LevelEvaluator
     }
 
     private int BinOf(double t) => Math.Max(0, (int)Math.Floor((t - binOrigin) / BinMs));
+
+    private int seed;
+
+    /// <summary>
+    /// The play's random seed: picks every object's random offsets and every choice group's roll. 0
+    /// in tools; the loader picks a new one for every attempt. Setting it restarts the imposters.
+    /// </summary>
+    public int Seed
+    {
+        get => seed;
+        set { if (value == seed) return; seed = value; ApplySeed(); ResetImposters(); }
+    }
+
+    private void ApplySeed()
+    {
+        var rolls = new Dictionary<string, int>();
+        foreach (var o in Level.Objects)
+        {
+            string name = string.IsNullOrEmpty(o.RandomSeed) ? o.Id : o.RandomSeed;
+            o.OffX = o.RandomX == null ? 0 : Lerp(o.RandomX, Random01(seed, name + "/x"));
+            o.OffY = o.RandomY == null ? 0 : Lerp(o.RandomY, Random01(seed, name + "/y"));
+            o.OffRot = o.RandomRot == null ? 0 : Lerp(o.RandomRot, Random01(seed, name + "/rot"));
+            o.Hidden = false;
+            if (o.Choices == null) continue;
+            foreach (var c in o.Choices)
+            {
+                if (!rolls.TryGetValue(c.Group, out int roll))
+                    rolls[c.Group] = roll = Math.Min(c.Count - 1, (int)(Random01(seed, "choice/" + c.Group) * c.Count));
+                if ((c.Show != null && Array.IndexOf(c.Show, roll) < 0) || (c.Hide != null && Array.IndexOf(c.Hide, roll) >= 0))
+                    o.Hidden = true;
+            }
+        }
+    }
+
+    private static double Lerp(double[] range, double u) => range[0] + (range[1] - range[0]) * u;
+
+    /// <summary>
+    /// A number in [0, 1) from a seed and a name: FNV-1a 64 over the name's UTF-16 code units, xored
+    /// with seed × 0x9E3779B97F4A7C15, then the splitmix64 finaliser; the top 53 bits / 2^53.
+    /// </summary>
+    public static double Random01(int seed, string key)
+    {
+        ulong h = 14695981039346656037UL;
+        foreach (char ch in key) { h ^= ch; h *= 1099511628211UL; }
+        h ^= (ulong)(uint)seed * 0x9E3779B97F4A7C15UL;
+        h += 0x9E3779B97F4A7C15UL;
+        h = (h ^ (h >> 30)) * 0xBF58476D1CE4E5B9UL;
+        h = (h ^ (h >> 27)) * 0x94D049BB133111EBUL;
+        h ^= h >> 31;
+        return (h >> 11) * (1.0 / (1UL << 53));
+    }
 
     public static Phase PhaseAt(LevelObject o, double t)
     {
@@ -95,7 +147,7 @@ public sealed class LevelEvaluator
     public static Affine TransformAt(LevelObject o, double t)
     {
         double lt = t - o.Start;
-        double x = o.X.Evaluate(lt), y = o.Y.Evaluate(lt), rot = o.Rot.Evaluate(lt);
+        double x = o.X.Evaluate(lt) + o.OffX, y = o.Y.Evaluate(lt) + o.OffY, rot = o.Rot.Evaluate(lt) + o.OffRot;
         double w = o.W.Evaluate(lt), h = o.H.Evaluate(lt);
         double r = rot * Math.PI / 180, cos = Math.Cos(r), sin = Math.Sin(r);
         double lx = -o.PivotX * w, ly = -o.PivotY * h;
@@ -109,11 +161,7 @@ public sealed class LevelEvaluator
             Ty = y + sin * lx + cos * ly,
         };
         var p = o.Parent;
-        for (int depth = 0; p != null && depth < MaxParentDepth; depth++, p = p.Parent)
-        {
-            double plt = t - p.Start;
-            m = m.Then(Affine.RotateTranslate(p.Rot.Evaluate(plt), p.X.Evaluate(plt), p.Y.Evaluate(plt)));
-        }
+        for (int depth = 0; p != null && depth < MaxParentDepth; depth++, p = p.Parent) m = m.Then(ChildFrame(p, t));
         return m;
     }
 
@@ -164,6 +212,7 @@ public sealed class LevelEvaluator
         foreach (var i in bins[b])
         {
             var o = Level.Objects[i];
+            if (o.Hidden) continue;
             var phase = PhaseAt(o, t);
             if (phase == Phase.Absent) continue;
             var color = ColorAt(o, t, phase);
@@ -208,17 +257,49 @@ public sealed class LevelEvaluator
                 m = m.Then(Affine.RotateTranslate(0, sim.X, sim.Y));
                 return true;
             }
-            double plt = t - p.Start;
-            m = m.Then(Affine.RotateTranslate(p.Rot.Evaluate(plt), p.X.Evaluate(plt), p.Y.Evaluate(plt)));
+            m = m.Then(ChildFrame(p, t));
             cur = p;
         }
         return true;
     }
 
+    /// <summary>What a parent contributes to its children: its position and rotation (with offsets).</summary>
+    private static Affine ChildFrame(LevelObject p, double t)
+    {
+        double plt = t - p.Start;
+        return Affine.RotateTranslate(p.Rot.Evaluate(plt) + p.OffRot, p.X.Evaluate(plt) + p.OffX, p.Y.Evaluate(plt) + p.OffY);
+    }
+
+    /// <summary>Where an object's children are placed from: its own position, through its parents.</summary>
+    private Vec2? OriginAt(LevelObject o, double t)
+    {
+        var m = ChildFrame(o, t);
+        var cur = o;
+        for (int depth = 0; depth < MaxParentDepth; depth++)
+        {
+            if (cur.PlayerAnchor > 0)
+            {
+                if (!TryPlayer(cur.PlayerAnchor, out var player) || !player.Alive) return null;
+                return m.Then(Affine.RotateTranslate(0, player.Position.X, player.Position.Y)).Apply(0, 0);
+            }
+            var p = cur.Parent;
+            if (p == null) break;
+            if (p.Imposter != null)
+            {
+                var sim = SimAt(p, t);
+                m = m.Then(Affine.RotateTranslate(0, sim.X, sim.Y));
+                break;
+            }
+            m = m.Then(ChildFrame(p, t));
+            cur = p;
+        }
+        return m.Apply(0, 0);
+    }
+
     private static Affine LocalTransform(LevelObject o, double t)
     {
         double lt = t - o.Start;
-        double x = o.X.Evaluate(lt), y = o.Y.Evaluate(lt), rot = o.Rot.Evaluate(lt);
+        double x = o.X.Evaluate(lt) + o.OffX, y = o.Y.Evaluate(lt) + o.OffY, rot = o.Rot.Evaluate(lt) + o.OffRot;
         double w = o.W.Evaluate(lt), h = o.H.Evaluate(lt);
         double r = rot * Math.PI / 180, cos = Math.Cos(r), sin = Math.Sin(r);
         double lx = -o.PivotX * w, ly = -o.PivotY * h;
@@ -252,7 +333,8 @@ public sealed class LevelEvaluator
     /// <summary>The imposter's simulation advanced to song time t (clamped to its lifetime).</summary>
     public ImposterSim SimAt(LevelObject o, double t)
     {
-        if (!sims.TryGetValue(o, out var sim)) sims[o] = sim = new ImposterSim(o, Level.Meta.Bpm);
+        if (!sims.TryGetValue(o, out var sim))
+            sims[o] = sim = new ImposterSim(o, Level.Meta.Bpm, o.Parent == null ? null : st => OriginAt(o.Parent, st));
         sim.AdvanceTo(Math.Clamp(t - o.Start, 0, o.End - o.Start), Players);
         return sim;
     }
@@ -391,14 +473,19 @@ public sealed class LevelEvaluator
     /// How fast the players move at time t, as a part of their normal speed: 1 before the first
     /// playerSpeed event; each one blends from the previous value to its own over its duration.
     /// </summary>
-    public double PlayerSpeedAt(double t)
+    public double PlayerSpeedAt(double t) => SpeedEventValue(t, e => e.Speed);
+
+    /// <summary>How quickly the players turn at time t (from playerSpeed events, blended the same way).</summary>
+    public double PlayerTurnAt(double t) => SpeedEventValue(t, e => e.Turn);
+
+    private double SpeedEventValue(double t, Func<LevelEvent, double> value)
     {
         int i = LastEventAtOrBefore(speedEvents, t);
         if (i < 0) return 1;
         var e = speedEvents[i];
-        if (e.Duration <= 0 || t >= e.T + e.Duration) return e.Speed;
-        double from = i > 0 ? speedEvents[i - 1].Speed : 1;
-        return from + (e.Speed - from) * Ease.Apply(e.Ease, (t - e.T) / e.Duration);
+        if (e.Duration <= 0 || t >= e.T + e.Duration) return value(e);
+        double from = i > 0 ? value(speedEvents[i - 1]) : 1;
+        return from + (value(e) - from) * Ease.Apply(e.Ease, (t - e.T) / e.Duration);
     }
 
     public Rgba BackgroundAt(double t)

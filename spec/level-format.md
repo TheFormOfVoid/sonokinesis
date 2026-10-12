@@ -128,6 +128,8 @@ An object is one shape with an animated transform. Everything a level does is bu
 | `layer` | `0` | Draw order. Higher layers draw on top. Ties keep file order. |
 | `parent` | none | Id of another object, or a player: `"@player"` (player 1), `"@player2"` … `"@player4"`. See *Transform* and *Players*. |
 | `imposter` | none | Makes the object move like a player. See *Imposters*. *(v2)* |
+| `random` | none | Random offsets picked again on every play. See *Random each play*. *(v2)* |
+| `choice` | none | The object exists only on some rolls of random groups. See *Random each play*. *(v2)* |
 | `pivot` | `[0, 0]` | The point that `x`/`y` place and that rotation and scale turn around, in fractions of the object's size: `[-0.5, 0]` is the middle of the left edge. |
 
 ### Phases
@@ -279,8 +281,10 @@ tracks still give its spawn point (`x`, `y` at the end of the warning), its size
 `opacity`; `rot` and `pivot` are ignored. A `parent` that is a player makes the spawn point relative
 to that player: during the warning the imposter keeps that offset from the player (kept inside the
 screen when `bounds` is on), and it starts from there; without that player the offset counts from
-the centre of the screen. Other parents are ignored. Other objects can use an imposter as their
-`parent`; they then follow its position only.
+the centre of the screen. A parent that is an object makes the spawn point relative to where that
+object is (its position through its own parents; its rotation is not applied to the offset), during
+the warning and at activation, so an imposter can come out of a moving shape. Other objects can use
+an imposter as their `parent`; they then follow its position only.
 
 ```json
 "imposter": { "mode": "chase", "speed": 383, "dashSpeed": 1467, "dashEvery": 550, "leaveAt": 10000 }
@@ -359,6 +363,34 @@ triangle leads with its tip; the stretch stays along the heading.
 
 Effects are drawn under the body, in the order rings, trail, shadow.
 
+### Random each play *(v2)*
+
+A level can differ on every attempt. Each play has a seed: tools use 0, the loader picks a new one
+when the level starts and whenever playback has gone back (a checkpoint restart) and runs again.
+
+```json
+"random": { "x": [-20, 20], "y": [-340, 340], "rot": [0, 360], "seed": "cube12" },
+"choice": [{ "group": "ambush", "count": 9, "show": [3] }, { "group": "shape 4", "count": 4, "hide": [0] }]
+```
+
+`random.x`, `random.y` and `random.rot` are `[min, max]` ranges. For each one present, the play adds
+`min + (max − min) · u` to every value of that track (and to what the object contributes to its
+children as a parent), with `u = R(seed, name + "/x")` (or `"/y"`, `"/rot"`) and `name` =
+`random.seed`, or the object's `id` without it; objects with the same `random.seed` get the same
+offsets.
+
+`choice` is one condition or a list of them, all of which must hold. A group rolls
+`r = min(count − 1, ⌊R(seed, "choice/" + group) · count⌋)` once per play; every condition naming it
+sees the same `r` (its own `count` is used for the roll it computes, so give every condition of a
+group the same `count`). The condition holds when `r` is in `show` (if given) and not in `hide`. An
+object whose conditions do not hold does not exist in that play: it is not drawn and does not hurt.
+It still works as a parent; its children carry their own conditions.
+
+`R(seed, key)` is a number in `[0, 1)`: FNV-1a 64 over the key's UTF-16 code units (offset basis
+14695981039346656037, prime 1099511628211), xored with `seed · 0x9E3779B97F4A7C15` (64-bit, seed
+as unsigned 32-bit), then splitmix64's finaliser (add `0x9E3779B97F4A7C15`; `h = (h ^ h >> 30) ·
+0xBF58476D1CE4E5B9`; `h = (h ^ h >> 27) · 0x94D049BB133111EB`; `h ^= h >> 31`), and `(h >> 11) / 2^53`.
+
 ### Collision
 
 A player is a circle (the game's own player hitbox, radius 8). During its active phase an object with
@@ -386,7 +418,8 @@ Events change the whole scene at a song time.
 | `background` | `duration`, `color`, `ease` | Background color transition from the current color, starting at `t`. |
 | `sway` *(v2)* | `rotation` (degrees), `x`, `y` (units), `period`, `periodX`, `periodY` (ms; defaults `2000`, `period·1.08`, `period·1.21`), `duration`, `ease` | From `t` until the next sway, the whole scene (players included) turns by `rotation·sin(2π·T/period)` around the screen centre and moves by `x·sin(2π·T/periodX)`, `y·sin(2π·T/periodY)`, with `T` the song time. Over `duration` the amplitudes blend from the previous sway's (or 0). |
 | `sound` *(v2)* | `sound`, `volume` (0–1) | Plays one of the game's own sounds when playback passes `t` (not after seeks or rewinds): `playerDeath`, `playerHit`, `playerRespawn`, `explosion`. Tools without the game stay silent. |
-| `playerSpeed` *(v2)* | `speed` (0–2, default 1), `duration`, `ease` | From `t` on the players move at `speed` times their normal speed, dashes included, until the next `playerSpeed` event; input still turns them, so near 0 they are rooted and turn in place. Before the first one the speed is 1; each one blends from the previous value over `duration` with `ease`. Applied by the loader every frame; editors do not simulate it. |
+| `playerSpeed` *(v2)* | `speed` (0–2, default 1), `turn` (0.001–1, default 1), `duration`, `ease` | From `t` on the players keep `speed` times each step's movement, dashes included, until the next `playerSpeed` event. Their velocity is unchanged, so the game still stretches and trails them: near 0 they are rooted and warp in place. Each frame they turn `turn` of the way to the direction they move in (1: at once). Before the first one both are 1; each one blends from the previous values over `duration` with `ease`. Applied by the loader every frame; editors do not simulate it. |
+| `credits` *(v2)* | — | The game's own title card (`meta.title` and `meta.artist`) shows at `t` instead of at the start: the game's wait before it is lengthened by `t` minus the song time the level was launched from. Launched from past `t`, the card keeps the game's timing. Use one per level. |
 
 ## Compatibility
 
