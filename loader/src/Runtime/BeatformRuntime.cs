@@ -120,6 +120,9 @@ public class BeatformRuntime : MonoBehaviour
         long t1 = Settings.DevConsole ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         // Hazards just behind the players (players stay visible on top), flashes in front of everything.
         var items = renderer.Draw(level.Evaluator, t, GameBridge.GameplayLayerMatrix(), heroZ.Back + 0.004f, heroZ.Front - 0.004f);
+        // The game draws the players over our flashes; a flash that covers the screen hides them.
+        bool covered = HideCoveredHeroes && renderer.FlashCover >= 0.99f;
+        if (covered != heroesHidden) { GameBridge.ShowHeroes(!covered); heroesHidden = covered; }
         long t2 = Settings.DevConsole ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
 
         if (!frozen)
@@ -133,7 +136,7 @@ public class BeatformRuntime : MonoBehaviour
             RunShakes(level.Data, t);
             RunSounds(level.Data, t);
         }
-        ApplySway(level.Evaluator.SwayAt(t));
+        ApplyCamera(level.Evaluator.SwayAt(t), level.Evaluator.ZoomAt(t));
         ApplyPlayerSpeed(frozen ? 1 : PlayerSpeedOverride ?? (float)level.Evaluator.PlayerSpeedAt(t),
             frozen ? 1 : PlayerTurnOverride ?? (float)level.Evaluator.PlayerTurnAt(t));
         if (Settings.DevConsole)
@@ -177,6 +180,8 @@ public class BeatformRuntime : MonoBehaviour
     }
 
     private double furthestSongTime = double.NaN;
+    private bool heroesHidden;
+    internal static bool HideCoveredHeroes = true;
     private readonly System.Random seeds = new();
     private float playerSpeed = 1;
     /// <summary>Dev console: forces the players' speed and turning instead of the level's events.</summary>
@@ -195,23 +200,30 @@ public class BeatformRuntime : MonoBehaviour
         playerSpeed = speed;
     }
 
-    private float swayRot, swayX, swayY;
+    private float swayRot, swayX, swayY, camScale = 1;
 
     /// <summary>
-    /// Turns and moves the game's gameplay container by the level's sway. Only the change since the
-    /// last frame is applied, so the game's own camera moves (kicks, shakes) keep working.
+    /// Turns, moves and zooms the game's gameplay container by the level's sway and zoom. Turning and
+    /// zoom apply only the change since the last frame; the position is shifted every frame from where
+    /// the game puts it, so the game's own camera moves (kicks, shakes) keep working.
     /// </summary>
-    private void ApplySway((double Rotation, double X, double Y) sway)
+    private void ApplyCamera((double Rotation, double X, double Y) sway, (double Scale, double X, double Y) zoom)
     {
-        float r = (float)sway.Rotation, x = (float)sway.X, y = (float)sway.Y;
-        if (r == swayRot && x == swayX && y == swayY) return;
-        if (GameBridge.OffsetCamera(r - swayRot, x - swayX, y - swayY)) { swayRot = r; swayX = x; swayY = y; }
+        // Zooming by s on the point F keeps F where it is: everything else moves by F·(1 − s).
+        float s = (float)zoom.Scale, r = (float)sway.Rotation;
+        float x = (float)(sway.X + zoom.X * (1 - zoom.Scale)), y = (float)(sway.Y + zoom.Y * (1 - zoom.Scale));
+        GameBridge.ShiftCamera(x, y);
+        swayX = x; swayY = y;
+        if (r == swayRot && s == camScale) return;
+        if (GameBridge.OffsetCamera(r - swayRot, s / camScale)) { swayRot = r; camScale = s; }
     }
 
     private void ResetSway()
     {
-        if (swayRot != 0 || swayX != 0 || swayY != 0) GameBridge.OffsetCamera(-swayRot, -swayX, -swayY);
+        if (swayRot != 0 || camScale != 1) GameBridge.OffsetCamera(-swayRot, 1 / camScale);
+        if (swayX != 0 || swayY != 0) GameBridge.ShiftCamera(0, 0);
         swayRot = swayX = swayY = 0;
+        camScale = 1;
     }
 
     /// <summary>Shake events fire when playback crosses their start; jumps (rewinds, seeks) skip them.</summary>
@@ -267,6 +279,7 @@ public class BeatformRuntime : MonoBehaviour
         ResetSway();
         ApplyPlayerSpeed(1);
         furthestSongTime = double.NaN;
+        if (heroesHidden) { GameBridge.ShowHeroes(true); heroesHidden = false; }
         sessionStartedAt = 0;
         sessionSeenInGame = false;
         CustomSession.End();

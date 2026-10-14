@@ -370,6 +370,12 @@ public static class GameCommands
             return sb.ToString();
         };
 
+        DevConsole.Commands["coverhide"] = a =>
+        {
+            Runtime.BeatformRuntime.HideCoveredHeroes = a.Length == 0 || a[0] != "off";
+            return "hide covered players " + Runtime.BeatformRuntime.HideCoveredHeroes;
+        };
+
         DevConsole.Commands["playerspeed"] = a =>
         {
             // playerspeed <speed> [turn] | playerspeed level

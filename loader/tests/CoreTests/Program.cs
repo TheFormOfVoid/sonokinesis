@@ -332,6 +332,43 @@ internal static class Program
         randEv.Collect(2000, hiddenItems);
         Check(hiddenItems.All(it => !it.Object.Hidden), "hidden objects are not drawn");
 
+        // Zoom on a point or a player, flashes that hold, imposters that arrive on time.
+        var zl = LevelData.Parse("{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"events\":["
+            + "{\"t\":1000,\"type\":\"zoom\",\"scale\":2,\"x\":100,\"y\":-50,\"duration\":1000},"
+            + "{\"t\":3000,\"type\":\"zoom\",\"scale\":1.5,\"focus\":\"@player\"},"
+            + "{\"t\":5000,\"type\":\"flash\",\"color\":\"#000000\",\"opacity\":1,\"hold\":2000,\"duration\":500}],"
+            + "\"objects\":[{\"id\":\"a\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":9000,\"imposter\":{\"mode\":\"chase\",\"bounds\":false,"
+            + "\"speed\":0,\"dashSpeed\":0,\"firstDash\":99999,\"arriveFrom\":1000,\"arriveAt\":3000,\"arriveEase\":\"linear\"},\"tracks\":{\"x\":[[0,500]],\"y\":[[0,0]]}}]}");
+        var zev = new LevelEvaluator(zl);
+        var zp = new PlayerList();
+        zp.Players.Add(new PlayerInfo { Number = 1, Position = new Vec2(-100, 20), Alive = true });
+        zev.Players = zp;
+        Check(zev.ZoomAt(500) == (1, 0, 0), "no zoom before the first zoom event");
+        var z1 = zev.ZoomAt(1500);
+        Near(z1.Scale, 1.5, "zoom blends in", 1e-9);
+        Near(z1.X, 100, "zoom point (no previous zoom: its own)", 1e-9);
+        Check(zev.ZoomAt(2500) == (2, 100, -50), "zoom holds after its duration");
+        Check(zev.ZoomAt(3500) == (1.5, -100, 20), "zoom on the player follows the player");
+        var fl = new List<Rgba>();
+        zev.Flashes(6500, fl);
+        Check(fl.Count == 1 && Math.Abs(fl[0].A - 1) < 1e-6, "a flash holds full opacity");
+        zev.Flashes(7250, fl);
+        Check(fl.Count == 1 && Math.Abs(fl[0].A - 0.5) < 1e-6, "then fades over its duration");
+        var walker = LevelData.Parse("{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"objects\":[{\"id\":\"w\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":9000,"
+            + "\"imposter\":{\"mode\":\"straight\",\"angle\":0,\"speed\":60,\"dashSpeed\":900,\"firstDash\":99999,\"stopAt\":0,\"stopFor\":1000,\"stopDash\":false},\"tracks\":{\"x\":[[0,0]]}}]}");
+        var wev = new LevelEvaluator(walker);
+        Near(wev.SimAt(walker.Objects[0], 900).X, 0, "it stands during its stop", 1e-6);
+        var ws = wev.SimAt(walker.Objects[0], 2000);
+        Check(ws.X > 50 && ws.X < 70 && ws.Pulses.Count == 0, $"then walks on without a dash (x {ws.X:0.#})");
+        var arr = zl.Objects[0];
+        var asim = zev.SimAt(arr, 2000);
+        Near(asim.X, 500 + (-100 - 500) * 0.5, "an arriving imposter is halfway at half time", 2);
+        asim = zev.SimAt(arr, 3000);
+        Near(asim.X, -100, "it reaches the player on time", 0.5);
+        Near(asim.Y, 20, "it reaches the player on time (y)", 0.5);
+        asim = zev.SimAt(arr, 4000);
+        Near(asim.X, -100, "and stays on them", 0.5);
+
         // Sway and sound events.
         var ev2 = LevelData.Parse("{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"events\":["
             + "{\"t\":0,\"type\":\"sway\",\"rotation\":1,\"x\":5,\"period\":2000,\"periodX\":2400},"

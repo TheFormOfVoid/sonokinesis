@@ -46,6 +46,7 @@ public sealed class LevelEvaluator
     private readonly List<LevelEvent> backgroundEvents = new();
     private readonly List<LevelEvent> swayEvents = new();
     private readonly List<LevelEvent> speedEvents = new();
+    private readonly List<LevelEvent> zoomEvents = new();
     private readonly Dictionary<LevelObject, ImposterSim> sims = new();
     private static readonly ShapeDef pulseRing = new() { Type = ShapeType.Ring, Thickness = ImposterSim.RingThickness };
     /// <summary>Trail copies are a few units wide, so circles use a 10-sided polygon there.</summary>
@@ -72,6 +73,7 @@ public sealed class LevelEvaluator
         foreach (var e in level.Events) if (e.Type == EventType.Background) backgroundEvents.Add(e);
         foreach (var e in level.Events) if (e.Type == EventType.Sway) swayEvents.Add(e);
         foreach (var e in level.Events) if (e.Type == EventType.PlayerSpeed) speedEvents.Add(e);
+        foreach (var e in level.Events) if (e.Type == EventType.Zoom) zoomEvents.Add(e);
         ApplySeed();
         backgroundStartColors = new Rgba[backgroundEvents.Count];
         var cur = level.Background;
@@ -475,6 +477,30 @@ public sealed class LevelEvaluator
     /// </summary>
     public double PlayerSpeedAt(double t) => SpeedEventValue(t, e => e.Speed);
 
+    /// <summary>
+    /// The camera zoom at time t: how much bigger everything is drawn and the point (level units from
+    /// the centre) that stays put while it grows. 1 and (0, 0) before the first zoom event; each one
+    /// blends scale and point from the previous one's over its duration. A zoom on a player uses that
+    /// player's position now (the centre if they are not there).
+    /// </summary>
+    public (double Scale, double X, double Y) ZoomAt(double t)
+    {
+        int i = LastEventAtOrBefore(zoomEvents, t);
+        if (i < 0) return (1, 0, 0);
+        var e = zoomEvents[i];
+        var (s, x, y) = ZoomTarget(e);
+        if (e.Duration <= 0 || t >= e.T + e.Duration) return (s, x, y);
+        var (ps, px, py) = i > 0 ? ZoomTarget(zoomEvents[i - 1]) : (1.0, x, y);
+        double p = Ease.Apply(e.Ease, (t - e.T) / e.Duration);
+        return (ps + (s - ps) * p, px + (x - px) * p, py + (y - py) * p);
+    }
+
+    private (double Scale, double X, double Y) ZoomTarget(LevelEvent e)
+    {
+        if (e.FocusPlayer > 0) return TryPlayer(e.FocusPlayer, out var pl) ? (e.Scale, pl.Position.X, pl.Position.Y) : (e.Scale, 0, 0);
+        return (e.Scale, e.SwayX, e.SwayY);
+    }
+
     /// <summary>How quickly the players turn at time t (from playerSpeed events, blended the same way).</summary>
     public double PlayerTurnAt(double t) => SpeedEventValue(t, e => e.Turn);
 
@@ -508,9 +534,10 @@ public sealed class LevelEvaluator
         foreach (var e in Level.Events)
         {
             if (e.T > t) break;
-            if (e.Type != EventType.Flash || e.Duration <= 0 || t >= e.T + e.Duration) continue;
+            if (e.Type != EventType.Flash || e.Duration + e.Hold <= 0 || t >= e.T + e.Hold + e.Duration) continue;
             var c = e.Color;
-            c.A = (float)(c.A * e.Opacity * (1 - (t - e.T) / e.Duration));
+            double fade = t < e.T + e.Hold ? 0 : (t - e.T - e.Hold) / e.Duration;
+            c.A = (float)(c.A * e.Opacity * (1 - fade));
             output.Add(c);
         }
     }

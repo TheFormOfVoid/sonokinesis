@@ -68,8 +68,16 @@ public sealed class ImposterBehavior
     /// <summary>Time after activation to brake and stand still; negative means never.</summary>
     public double StopAt = -1;
     public double StopFor = 0;
+    /// <summary>When the stop ends: dash (true) or just start cruising again.</summary>
+    public bool StopDash = true;
     /// <summary>Time after activation to dash away in a straight line, no longer harmful; negative means never.</summary>
     public double LeaveAt = -1;
+    /// <summary>
+    /// From ArriveFrom to ArriveAt (ms after activation) it closes in on the nearest player along
+    /// ArriveEase, reaching them exactly at ArriveAt, and stays on them after. Negative: never.
+    /// </summary>
+    public double ArriveFrom = -1, ArriveAt = -1;
+    public Ease.Kind ArriveEase = Ease.Kind.InQuad;
     /// <summary>Keep inside the screen while hunting.</summary>
     public bool Bounds = true;
     public double StretchSpeed = 2000;
@@ -92,7 +100,11 @@ public sealed class ImposterBehavior
         b.FirstDash = Num(e, "firstDash", b.FirstDash);
         b.StopAt = Num(e, "stopAt", b.StopAt);
         b.StopFor = Math.Max(0, Num(e, "stopFor", b.StopFor));
+        b.StopDash = Bool(e, "stopDash", true);
         b.LeaveAt = Num(e, "leaveAt", b.LeaveAt);
+        b.ArriveFrom = Num(e, "arriveFrom", b.ArriveFrom);
+        b.ArriveAt = Num(e, "arriveAt", b.ArriveAt);
+        if (Str(e, "arriveEase") is string ae) b.ArriveEase = Ease.Parse(ae);
         b.Bounds = Bool(e, "bounds", b.Mode == ImposterMode.Chase);
         b.StretchSpeed = Math.Max(1, Num(e, "stretchSpeed", b.StretchSpeed));
         b.StretchMax = Math.Clamp(Num(e, "stretchMax", b.StretchMax), 0, 2);
@@ -141,7 +153,8 @@ public sealed class ImposterSim
     private long steps = -1;
     private double x, y, vx, vy, heading, drawAngle, stretch, warp, lifeT, stateT, trailT, dashAngle;
     private State state;
-    private bool firstDashDone, stopped, entered;
+    private bool firstDashDone, stopped, entered, arriving;
+    private double arriveX, arriveY;
     /// <summary>With DashBeats: time after activation of the next dash on the beat.</summary>
     private double nextBeatDash;
     public readonly List<Particle> Trail = new();
@@ -214,7 +227,7 @@ public sealed class ImposterSim
         warp = 0;
         lifeT = stateT = trailT = 0;
         state = State.Cruise;
-        firstDashDone = stopped = false;
+        firstDashDone = stopped = arriving = false;
         entered = Math.Abs(x) <= BoundsX && Math.Abs(y) <= BoundsY;
         Trail.Clear();
         Pulses.Clear();
@@ -293,7 +306,8 @@ public sealed class ImposterSim
             }
             case State.Stop:
                 vx *= 0.8; vy *= 0.8;
-                if (stateT >= b.StopFor)
+                if (stateT >= b.StopFor && !b.StopDash) { state = State.Cruise; stateT = 0; }
+                else if (stateT >= b.StopFor)
                 {
                     StartDash();
                     // Beats that passed while standing still are skipped.
@@ -305,11 +319,23 @@ public sealed class ImposterSim
                 break;
         }
 
+        if (b.ArriveAt > b.ArriveFrom && b.ArriveFrom >= 0 && lifeT >= b.ArriveFrom && aim)
+        {
+            // Closing in: the position follows the ease from where it was to the player; the velocity
+            // is what that movement works out to, so it still stretches and trails.
+            if (!arriving) { arriving = true; arriveX = x; arriveY = y; }
+            double p = Math.Clamp((lifeT - b.ArriveFrom) / (b.ArriveAt - b.ArriveFrom), 0, 1);
+            double e = Ease.Apply(b.ArriveEase, p);
+            double nx = arriveX + (px - arriveX) * e, ny = arriveY + (py - arriveY) * e;
+            vx = (nx - x) * 1000 / dt;
+            vy = (ny - y) * 1000 / dt;
+            heading = Deg(Math.Atan2(py - y, px - x));
+        }
         x += vx * dt / 1000;
         y += vy * dt / 1000;
         // An imposter that starts off screen comes in first; only then does it stay on screen.
         if (!entered && Math.Abs(x) <= BoundsX && Math.Abs(y) <= BoundsY) entered = true;
-        if (b.Bounds && entered && state != State.Leave)
+        if (b.Bounds && entered && state != State.Leave && !arriving)
         {
             if (x < -BoundsX) { x = -BoundsX; vx *= -0.5; }
             if (x > BoundsX) { x = BoundsX; vx *= -0.5; }

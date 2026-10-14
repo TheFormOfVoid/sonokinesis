@@ -59,6 +59,7 @@ public partial class PalettePanel : PanelContainer
         box.AddChild(Item("scene:sound", "♪  Game sound", "Plays one of the game's own sounds, like a player's death."));
         box.AddChild(Item("scene:playerSpeed", "‖  Player speed", "Slows the players down (or roots them) from here on, until the next player speed event."));
         box.AddChild(Item("scene:credits", "T  Title card", "Shows the game's title card (song and artist) here instead of at the start."));
+        box.AddChild(Item("scene:zoom", "+  Camera zoom", "Zooms the camera in or out from here on, on a point or on the player."));
     }
 
     private Control Item(string id, string label, string tip)
@@ -112,6 +113,9 @@ public partial class PalettePanel : PanelContainer
                     return;
                 case "playerSpeed":
                     AddEvent(new EditEvent { T = t, Type = "playerSpeed", Duration = 150, Speed = 0.05 });
+                    return;
+                case "zoom":
+                    AddEvent(new EditEvent { T = t, Type = "zoom", Duration = beat * 4, Scale = 1.3, Focus = "@player", Ease = "inOutSine", SwayX = 0, SwayY = 0 });
                     return;
                 case "credits":
                     if (S.Doc.Events.Any(e => e.Type == "credits")) return;

@@ -51,6 +51,11 @@ public sealed class ImposterSpec
     public double StopAt = -1;
     public double StopFor = 0;
     public double LeaveAt = -1;
+    /// <summary>When a stop ends: dash, or just cruise on.</summary>
+    public bool StopDash = true;
+    /// <summary>Closes in on the nearest player from ArriveFrom, reaching them at ArriveAt (-1: never).</summary>
+    public double ArriveFrom = -1, ArriveAt = -1;
+    public string ArriveEase = "inQuad";
     public bool Bounds = true;
     public double StretchSpeed = 2000;
     public double StretchMax = 0.4;
@@ -127,7 +132,7 @@ public sealed class ChoiceSpec
 
 public sealed class EditEvent
 {
-    public static readonly string[] Types = { "shake", "flash", "background", "sway", "sound", "playerSpeed", "credits" };
+    public static readonly string[] Types = { "shake", "flash", "background", "sway", "sound", "playerSpeed", "credits", "zoom" };
     /// <summary>Game sounds a "sound" event can play (see the level format).</summary>
     public static readonly string[] Sounds = { "playerDeath", "playerHit", "playerRespawn", "explosion" };
 
@@ -145,6 +150,11 @@ public sealed class EditEvent
     public double Speed = 0.05;
     /// <summary>playerSpeed: the part of the way to their heading the players turn each 1/60 s.</summary>
     public double Turn = 1;
+    /// <summary>flash: time at full opacity before fading.</summary>
+    public double Hold;
+    /// <summary>zoom: scale, and the point it zooms on (x, y), or "@player".</summary>
+    public double Scale = 1.3;
+    public string Focus;
 
     public EditEvent Clone() => (EditEvent)MemberwiseClone();
 }
@@ -326,8 +336,14 @@ public sealed class LevelDocument
             Num(w, "dashEvery", m.DashEvery);
             if (m.DashBeats > 0) Num(w, "dashBeats", m.DashBeats);
             if (m.FirstDash >= 0) Num(w, "firstDash", m.FirstDash);
-            if (m.StopAt >= 0) { Num(w, "stopAt", m.StopAt); Num(w, "stopFor", m.StopFor); }
+            if (m.StopAt >= 0) { Num(w, "stopAt", m.StopAt); Num(w, "stopFor", m.StopFor); if (!m.StopDash) w.WriteBoolean("stopDash", false); }
             if (m.LeaveAt >= 0) Num(w, "leaveAt", m.LeaveAt);
+            if (m.ArriveFrom >= 0 && m.ArriveAt > m.ArriveFrom)
+            {
+                Num(w, "arriveFrom", m.ArriveFrom);
+                Num(w, "arriveAt", m.ArriveAt);
+                if (m.ArriveEase != "inQuad") w.WriteString("arriveEase", m.ArriveEase);
+            }
             w.WriteBoolean("bounds", m.Bounds);
             Num(w, "stretchSpeed", m.StretchSpeed);
             Num(w, "stretchMax", m.StretchMax);
@@ -370,7 +386,13 @@ public sealed class LevelDocument
         switch (e.Type)
         {
             case "shake": Num(w, "intensity", e.Intensity); break;
-            case "flash": w.WriteString("color", e.Color); Num(w, "opacity", e.Opacity); break;
+            case "flash": w.WriteString("color", e.Color); Num(w, "opacity", e.Opacity); if (e.Hold > 0) Num(w, "hold", e.Hold); break;
+            case "zoom":
+                Num(w, "scale", e.Scale);
+                if (!string.IsNullOrEmpty(e.Focus)) w.WriteString("focus", e.Focus);
+                else { Num(w, "x", e.SwayX); Num(w, "y", e.SwayY); }
+                if (e.Ease != "linear") w.WriteString("ease", e.Ease);
+                break;
             case "background": w.WriteString("color", e.Color); if (e.Ease != "linear") w.WriteString("ease", e.Ease); break;
             case "sway":
                 Num(w, "rotation", e.SwayRotation); Num(w, "x", e.SwayX); Num(w, "y", e.SwayY);
@@ -492,6 +514,10 @@ public sealed class LevelDocument
                     m.StopAt = D(im["stopAt"], m.StopAt);
                     m.StopFor = D(im["stopFor"], m.StopFor);
                     m.LeaveAt = D(im["leaveAt"], m.LeaveAt);
+                    m.StopDash = im["stopDash"] is JsonValue sdv ? sdv.GetValue<bool>() : true;
+                    m.ArriveFrom = D(im["arriveFrom"], -1);
+                    m.ArriveAt = D(im["arriveAt"], -1);
+                    m.ArriveEase = (string)im["arriveEase"] ?? "inQuad";
                     m.Bounds = im["bounds"] is JsonValue bv ? bv.GetValue<bool>() : m.Mode == "chase";
                     m.StretchSpeed = D(im["stretchSpeed"], m.StretchSpeed);
                     m.StretchMax = D(im["stretchMax"], m.StretchMax);
@@ -552,6 +578,9 @@ public sealed class LevelDocument
                     Volume = D(e["volume"], 1),
                     Speed = D(e["speed"], 1),
                     Turn = D(e["turn"], 1),
+                    Hold = D(e["hold"], 0),
+                    Scale = D(e["scale"], 1),
+                    Focus = (string)e["focus"],
                 });
             }
         }

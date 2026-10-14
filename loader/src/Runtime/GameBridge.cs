@@ -101,6 +101,18 @@ internal static class GameBridge
         catch { }
     }
 
+    /// <summary>Shows or hides the players (a flash at full opacity covers them too).</summary>
+    public static void ShowHeroes(bool show)
+    {
+        try
+        {
+            var cols = Hero.allCollisionEnemy;
+            for (int i = 0; cols != null && i < cols.length; i++)
+                cols[i]?.actor?.TryCast<Hero>()?.heroRenderer?.Show(show);
+        }
+        catch { }
+    }
+
     private static Actor attacker;
 
     /// <summary>
@@ -133,18 +145,47 @@ internal static class GameBridge
     /// Adds to the gameplay camera container's rotation (degrees) and position (game units). The
     /// container holds players, game effects and the layer our hazards follow.
     /// </summary>
-    public static bool OffsetCamera(float rotation, float x, float y)
+    public static bool OffsetCamera(float rotation, float scale = 1)
     {
         try
         {
             var c = CameraFlashContainers.instance?.container;
             if (c == null) return false;
             c.rotation += rotation;
-            c.x += x;
-            c.y += y;
+            if (scale != 1) { c.scaleX *= scale; c.scaleY *= scale; }
             return true;
         }
         catch { return false; }
+    }
+
+    private static float placedX = float.NaN, placedY = float.NaN, appliedX, appliedY, wantX, wantY;
+
+    /// <summary>
+    /// Moves the gameplay container by (x, y) from where the game puts it. The game places it again in
+    /// its camera update every frame (its own kicks and shakes included) before drawing, so the shift is
+    /// added right after that (CameraPatches); this only records it.
+    /// </summary>
+    public static void ShiftCamera(float x, float y)
+    {
+        wantX = x;
+        wantY = y;
+    }
+
+    /// <summary>Called after the game's camera update. If the game left the position alone since the
+    /// last frame, last frame's shift is taken off first.</summary>
+    public static void ApplyCameraShift()
+    {
+        try
+        {
+            var c = CameraFlashContainers.instance?.container;
+            if (c == null) return;
+            float baseX = c.x == placedX ? c.x - appliedX : c.x;
+            float baseY = c.y == placedY ? c.y - appliedY : c.y;
+            c.x = baseX + wantX;
+            c.y = baseY + wantY;
+            placedX = c.x; placedY = c.y; appliedX = wantX; appliedY = wantY;
+        }
+        catch { }
     }
 
     // Level sound names and the game sounds they play (the game's own audio, loaded by the game).

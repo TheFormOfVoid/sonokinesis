@@ -302,7 +302,9 @@ an imposter as their `parent`; they then follow its position only.
 | `dashBeats` *(v2)* | `0` | Above 0 (0.25–64): dash on the beat instead, one every `dashBeats` beats (see `meta.bpm`); `dashEvery` is ignored. |
 | `firstDash` | `dashEvery` | Cruising time before the first dash; `0` dashes on activation. With `dashBeats`, the first dash is on the first beat at or after activation + `max(0, firstDash)`. |
 | `stopAt`, `stopFor` | never, `0` | After `stopAt` ms it brakes and stands for `stopFor` ms, then dashes. |
+| `stopDash` *(v2)* | `true` | `false`: when the stop ends it cruises on instead of dashing. |
 | `leaveAt` | never | After `leaveAt` ms it dashes away on its heading at `dashSpeed` and no longer hurts. |
+| `arriveFrom`, `arriveAt`, `arriveEase` *(v2)* | never, never, `"inQuad"` | A chaser closes in on the nearest living player: from `arriveFrom` to `arriveAt` (ms after activation) its position goes from where it was at `arriveFrom` to the player's position with `arriveEase`, reaching them exactly at `arriveAt`, and stays on them after. Its velocity is what that movement works out to (so it stretches and trails), and `bounds` does not apply meanwhile. |
 | `bounds` | `true` for chase | Keeps it inside the screen while hunting. |
 | `stretchSpeed`, `stretchMax` | `2000`, `0.4` | How speed stretches it. |
 | `effects` | `true` | Trail, dash bursts, dash rings and drop shadow. |
@@ -414,16 +416,19 @@ Events change the whole scene at a song time.
 | type | fields | effect |
 |---|---|---|
 | `shake` | `duration`, `intensity` (units) | Camera shake. Uses the game's camera kick so players and hazards move together. |
-| `flash` | `duration`, `color`, `opacity` | Full screen color over the hazards, fading linearly from `opacity` to 0. |
+| `flash` | `duration`, `color`, `opacity`, `hold` *(v2, default 0)* | Full screen color over the hazards, held at `opacity` for `hold` ms, then fading linearly to 0 over `duration`. While a flash is fully opaque the loader hides the players too (the game draws them over the flash). |
 | `background` | `duration`, `color`, `ease` | Background color transition from the current color, starting at `t`. |
 | `sway` *(v2)* | `rotation` (degrees), `x`, `y` (units), `period`, `periodX`, `periodY` (ms; defaults `2000`, `period·1.08`, `period·1.21`), `duration`, `ease` | From `t` until the next sway, the whole scene (players included) turns by `rotation·sin(2π·T/period)` around the screen centre and moves by `x·sin(2π·T/periodX)`, `y·sin(2π·T/periodY)`, with `T` the song time. Over `duration` the amplitudes blend from the previous sway's (or 0). |
 | `sound` *(v2)* | `sound`, `volume` (0–1) | Plays one of the game's own sounds when playback passes `t` (not after seeks or rewinds): `playerDeath`, `playerHit`, `playerRespawn`, `explosion`. Tools without the game stay silent. |
 | `playerSpeed` *(v2)* | `speed` (0–2, default 1), `turn` (0.001–1, default 1), `duration`, `ease` | From `t` on the players keep `speed` times each step's movement, dashes included, until the next `playerSpeed` event. Their velocity is unchanged, so the game still stretches and trails them: near 0 they are rooted and warp in place. Each frame they turn `turn` of the way to the direction they move in (1: at once). Before the first one both are 1; each one blends from the previous values over `duration` with `ease`. Applied by the loader every frame; editors do not simulate it. |
+| `zoom` *(v2)* | `scale` (0.25–4, default 1), `x`, `y` (units from the centre) or `focus` (`"@player"` … `"@player4"`), `duration`, `ease` | From `t` on everything (players included) is drawn `scale` times bigger around the point `x`, `y`, or around that player's position at each moment (the centre if absent), until the next zoom. Before the first zoom the scale is 1; each one blends scale and point from the previous one's over `duration` with `ease`. |
 | `credits` *(v2)* | — | The game's own title card (`meta.title` and `meta.artist`) shows at `t` instead of at the start: the game's wait before it is lengthened by `t` minus the song time the level was launched from. Launched from past `t`, the card keeps the game's timing. Use one per level. |
 
 ## Compatibility
 
 - The loader rejects files whose `formatVersion` is greater than it supports and says so in the level
   list.
+- The camera's sway and zoom move the game's gameplay container: rotation and scale by their change
+  each frame, position by a shift added after the game places its camera every frame.
 - Version 1 levels will always load in later loaders. Version 2 adds players (`"@player"` parents and
   colours) and imposters; the editor writes version 2.

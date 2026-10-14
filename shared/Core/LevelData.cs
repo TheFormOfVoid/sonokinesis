@@ -140,7 +140,7 @@ public sealed class RandomChoice
     public int[] Show, Hide;
 }
 
-public enum EventType { Shake, Flash, Background, Sway, Sound, PlayerSpeed, Credits }
+public enum EventType { Shake, Flash, Background, Sway, Sound, PlayerSpeed, Credits, Zoom }
 
 public sealed class LevelEvent
 {
@@ -160,6 +160,12 @@ public sealed class LevelEvent
     public double Speed = 1;
     /// <summary>PlayerSpeed: the part of the way to their heading the players turn each 1/60 s (1 = at once).</summary>
     public double Turn = 1;
+    /// <summary>Flash: time at full opacity before it fades over its duration.</summary>
+    public double Hold;
+    /// <summary>Zoom: how much bigger everything is drawn (1 = normal); the point it zooms on is x, y.</summary>
+    public double Scale = 1;
+    /// <summary>Zoom: 1–4 to zoom on that player instead of x, y ("focus": "@player"); 0 otherwise.</summary>
+    public int FocusPlayer;
 }
 
 public sealed class LevelMeta
@@ -266,6 +272,9 @@ public sealed class LevelData
                     Volume = Math.Clamp(Num(e, "volume", 1), 0, 1),
                     Speed = Math.Clamp(Num(e, "speed", 1), 0, 2),
                     Turn = Math.Clamp(Num(e, "turn", 1), 0.001, 1),
+                    Hold = Math.Max(0, Num(e, "hold", 0)),
+                    Scale = Math.Clamp(Num(e, "scale", 1), 0.25, 4),
+                    FocusPlayer = PlayerAnchorOf(Str(e, "focus")),
                 };
                 ev.Period = Math.Max(100, Num(e, "period", 2000));
                 ev.PeriodX = Math.Max(100, Num(e, "periodX", ev.Period * 1.08));
@@ -279,6 +288,7 @@ public sealed class LevelData
                     case "sound": if (string.IsNullOrEmpty(ev.Sound)) continue; ev.Type = EventType.Sound; break;
                     case "playerSpeed": ev.Type = EventType.PlayerSpeed; break;
                     case "credits": ev.Type = EventType.Credits; break;
+                    case "zoom": ev.Type = EventType.Zoom; break;
                     default: continue;
                 }
                 level.Events.Add(ev);

@@ -18,6 +18,8 @@ internal sealed class HazardRenderer
 
     private readonly DynamicMesh hazards;
     private readonly DynamicMesh overlay;
+    /// <summary>The strongest flash drawn this frame (0 to 1).</summary>
+    public float FlashCover { get; private set; }
     private readonly DynamicMesh background;
     /// <summary>Backdrop objects (layer at or below LevelEvaluator.BackdropLayer), behind everything.</summary>
     private readonly DynamicMesh backdrop;
@@ -68,8 +70,13 @@ internal sealed class HazardRenderer
         hazards.End(new Vector3(camX, camY, hazardZ), zoom, camRot);
 
         ev.Flashes(t, flashes);
+        FlashCover = 0;
         overlay.Begin(flashes.Count * 4, flashes.Count * 6);
-        foreach (var f in flashes) overlay.AddQuad(0, 0, FullScreenW, FullScreenH, ToColor32(f));
+        foreach (var f in flashes)
+        {
+            overlay.AddQuad(0, 0, FullScreenW, FullScreenH, ToColor32(f));
+            FlashCover = Math.Max(FlashCover, f.A);
+        }
         overlay.End(new Vector3(0, 0, overlayZ), 1);
         return items;
     }

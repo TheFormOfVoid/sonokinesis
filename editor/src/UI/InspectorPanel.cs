@@ -359,8 +359,19 @@ public partial class InspectorPanel : PanelContainer
         Row("First dash", Num(() => m.FirstDash, v => m.FirstDash = v, "First dash", 10, -1, 100000, " ms"), m.DashBeats > 0 ? "The first dash is on the first beat after this long (-1 or 0: the first beat after it appears)."
             : "Cruising time before the first dash. 0 dashes right away, -1 uses Dash every.");
         Row("Stop at", Num(() => m.StopAt, v => m.StopAt = v, "Stop at", 10, -1, 1000000, " ms"), "After this long it brakes and waits (-1: never).");
-        if (m.StopAt >= 0) Row("Stop for", Num(() => m.StopFor, v => m.StopFor = Math.Max(0, v), "Stop for", 10, 0, 100000, " ms"));
+        if (m.StopAt >= 0)
+        {
+            Row("Stop for", Num(() => m.StopFor, v => m.StopFor = Math.Max(0, v), "Stop for", 10, 0, 100000, " ms"));
+            Row("Then", Check("dash off", () => m.StopDash, v => m.StopDash = v, "Dash after stop"), "When the stop ends it dashes; unticked, it just moves on.");
+        }
         Row("Leave at", Num(() => m.LeaveAt, v => m.LeaveAt = v, "Leave at", 10, -1, 1000000, " ms"), "After this long it dashes away and stops hurting (-1: never).");
+        Row("Arrive from", Num(() => m.ArriveFrom, v => m.ArriveFrom = v, "Arrive from", 10, -1, 1000000, " ms"),
+            "A chaser closes in on the nearest player from this time (-1: never)...");
+        if (m.ArriveFrom >= 0)
+        {
+            Row("Arrive at", Num(() => m.ArriveAt, v => m.ArriveAt = v, "Arrive at", 10, -1, 1000000, " ms"), "...and reaches them exactly at this time, wherever they are.");
+            Row("Arrive ease", Options(Eases, () => m.ArriveEase, v => m.ArriveEase = v, "Arrive ease"));
+        }
         Row("Stay on screen", Check("bounce off the edges", () => m.Bounds, v => m.Bounds = v, "Stay on screen"));
         Row("Stretch", Num(() => m.StretchMax, v => m.StretchMax = Math.Clamp(v, 0, 2), "Stretch", 0.05, 0, 2), "How much speed stretches it.");
         Row("Effects", Check("trail, dash rings, shadow", () => m.Effects, v => m.Effects = v, "Imposter effects"));
@@ -460,7 +471,7 @@ public partial class InspectorPanel : PanelContainer
     {
         box.AddChild(UiTheme.Heading("Scene event", 12, UiTheme.Pink));
         Row("Type", Options(EditEvent.Types, () => e.Type, v => e.Type = v, "Event type",
-            new[] { "Camera shake", "Screen flash", "Background color", "Camera sway", "Game sound", "Player speed", "Title card" }));
+            new[] { "Camera shake", "Screen flash", "Background color", "Camera sway", "Game sound", "Player speed", "Title card", "Camera zoom" }));
         Row("Time", Num(() => e.T, v => e.T = Math.Max(0, v), "Event time", 1, 0, 10000000, " ms"));
         Row("Duration", Num(() => e.Duration, v => e.Duration = Math.Max(0, v), "Event duration", 1, 0, 100000, " ms"));
         switch (e.Type)
@@ -471,6 +482,18 @@ public partial class InspectorPanel : PanelContainer
             case "flash":
                 Row("Color", ColorField(() => e.Color, v => e.Color = v, "Flash color", "#ffffff"));
                 Row("Opacity", Num(() => e.Opacity, v => e.Opacity = Math.Clamp(v, 0, 1), "Flash opacity", 0.05, 0, 1));
+                Row("Hold", Num(() => e.Hold, v => e.Hold = Math.Max(0, v), "Flash hold", 10, 0, 1000000, " ms"), "Stays at full opacity this long, then fades over the duration.");
+                break;
+            case "zoom":
+                box.AddChild(UiTheme.Small("From this time on the camera zooms on a point (or follows a player) until the next zoom event. Duration blends from the previous zoom. Shown on the stage while the song plays."));
+                Row("Scale", Num(() => e.Scale, v => e.Scale = Math.Clamp(v, 0.25, 4), "Zoom scale", 0.05, 0.25, 4), "1 is normal, 2 twice as big.");
+                Row("On player", Check("zoom on player 1", () => e.Focus == "@player", v => e.Focus = v ? "@player" : null, "Zoom focus"));
+                if (e.Focus != "@player")
+                {
+                    Row("Point x", Num(() => e.SwayX, v => e.SwayX = v, "Zoom x", 1, -2000, 2000), "The point that stays put while the view grows (0, 0 is the centre).");
+                    Row("Point y", Num(() => e.SwayY, v => e.SwayY = v, "Zoom y", 1, -2000, 2000));
+                }
+                Row("Ease", Options(Eases, () => e.Ease, v => e.Ease = v, "Ease"));
                 break;
             case "background":
                 Row("Color", ColorField(() => e.Color, v => e.Color = v, "Background color", "#000000"));
