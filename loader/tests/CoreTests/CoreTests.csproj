@@ -9,5 +9,9 @@
   <ItemGroup>
     <!-- The engine-free core is compiled straight from shared/Core. -->
     <Compile Include="..\..\..\shared\Core\*.cs" Link="Core\%(Filename)%(Extension)" />
+    <Compile Include="..\..\..\shared\Scripting\*.cs" Link="Scripting\%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Jint" Version="4.17.0" />
   </ItemGroup>
 </Project>

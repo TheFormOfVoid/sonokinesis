@@ -77,6 +77,9 @@ public partial class App : Control
 
         S.DocChanged += UpdateTitle;
         S.DocReplaced += () => { UpdateTitle(); ReloadSong(); };
+        Scripts.ScriptsService.I.ScriptsChanged += () => S.ReloadScripts();
+        Scripts.ScriptsService.I.LevelFileChanged += OnLevelFileChanged;
+        S.ScriptsReloaded += () => { Canvas.QueueRedraw(); Inspector.Sync(); Palette.RefreshScripts(); };
         GetTree().AutoAcceptQuit = false;
 
         var args = OS.GetCmdlineUserArgs();
@@ -192,8 +195,13 @@ public partial class App : Control
         return b;
     }
 
+    /// <summary>The last status-bar message (tests and the editor bridge read it).</summary>
+    public string LastStatus { get; private set; } = "";
+
     public void Status(string text, bool warn = false)
     {
+        LastStatus = text;
+        if (warn) GD.Print("status: " + text);
         statusLabel.Text = text;
         statusLabel.AddThemeColorOverride("font_color", warn ? UiTheme.Bad : UiTheme.Dim);
         statusUntil = Time.GetTicksMsec() / 1000.0 + 8;
@@ -229,6 +237,8 @@ public partial class App : Control
         timeLabel.Text = $"{S.FormatTime(S.Playhead)}  ·  {S.FormatBeats(S.Playhead)}";
         if (statusUntil > 0 && Time.GetTicksMsec() / 1000.0 > statusUntil) { statusLabel.Text = ""; statusUntil = 0; }
         GameBridge.Poll(this);
+        Scripts.ScriptsService.I.Poll();
+        EditorBridge.Poll(this);
         autotest?.Step(this);
         AutosaveTick();
     }
@@ -641,7 +651,10 @@ public partial class App : Control
         }
         try
         {
+            bool newFolder = Scripts.ScriptsService.I.LevelFolder != S.Doc.FolderPath;
             S.Doc.Save();
+            Scripts.ScriptsService.I.NoteSaved(File.ReadAllText(Path.Combine(S.Doc.FolderPath, "level.json")));
+            if (newFolder) Scripts.ScriptsService.I.Bind(S.Doc.FolderPath);
             S.MarkSaved();
             try { File.Delete(Path.Combine(S.Doc.FolderPath, AutosaveName)); } catch { }
             EditorSettings.AddRecent(S.Doc.FolderPath);
@@ -653,6 +666,29 @@ public partial class App : Control
             Status("Could not save: " + e.Message, true);
             return false;
         }
+    }
+
+    /// <summary>level.json was changed by something else (a text editor, an AI): reload it if that loses nothing.</summary>
+    private void OnLevelFileChanged()
+    {
+        if (S.Doc.FolderPath == null) return;
+        if (S.Dirty)
+        {
+            Status("level.json changed on disk, but you have unsaved edits: save to keep yours, or reopen the level to load the new file.", true);
+            return;
+        }
+        try
+        {
+            double ph = S.Playhead;
+            var sel = S.Selected.ToArray();
+            var doc = LevelDocument.Load(S.Doc.FolderPath);
+            S.Open(doc);
+            S.Playhead = ph;
+            S.Select(sel.Where(id => doc.Find(id) != null));
+            PlayheadMoved();
+            Status("Reloaded level.json (it changed on disk).");
+        }
+        catch (Exception e) { Status("level.json changed on disk but could not be read: " + e.Message, true); }
     }
 
     private void ReloadSong()

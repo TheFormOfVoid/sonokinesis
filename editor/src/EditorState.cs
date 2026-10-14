@@ -29,6 +29,8 @@ public sealed class EditorState
 
     public event Action DocReplaced;
     public event Action DocChanged;
+    /// <summary>Scripts changed (edited, added, reloaded from disk): previews and lists should refresh.</summary>
+    public event Action ScriptsReloaded;
     public event Action SelectionChanged;
 
     private readonly Stack<(string json, string[] sel, string label)> undo = new();
@@ -40,6 +42,7 @@ public sealed class EditorState
     public void Open(LevelDocument doc)
     {
         Doc = doc;
+        Scripts.ScriptsService.I.Bind(doc.FolderPath);
         Selected.Clear();
         SelectedEvent = -1;
         SelectedCheckpoint = -1;
@@ -54,6 +57,13 @@ public sealed class EditorState
     }
 
     public void MarkSaved() { Dirty = false; DocChanged?.Invoke(); }
+
+    /// <summary>Rebuilds the preview (scripts changed on disk or in the code editor).</summary>
+    public void ReloadScripts()
+    {
+        previewVersion = -1;
+        ScriptsReloaded?.Invoke();
+    }
 
     // ----- editing -----
 
@@ -239,7 +249,9 @@ public sealed class EditorState
                 EnsureStandIn();
                 try
                 {
-                    evaluator = new LevelEvaluator(LevelData.Parse(Doc.ToJson(false, forPreview: true)));
+                    var data = LevelData.Parse(Doc.ToJson(false, forPreview: true));
+                    foreach (var kv in Scripts.ScriptsService.I.LevelSources) data.ScriptSources[kv.Key] = kv.Value;
+                    evaluator = new LevelEvaluator(data);
                     PreviewError = null;
                 }
                 catch (Exception e)

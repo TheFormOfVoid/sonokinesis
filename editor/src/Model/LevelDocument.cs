@@ -92,6 +92,8 @@ public sealed class EditObject
     public string RandomSeed;
     /// <summary>All must hold for the object to exist in a play.</summary>
     public List<ChoiceSpec> Choices = new();
+    /// <summary>Runs scripts/NAME.js instead of drawing its shape; null for ordinary objects.</summary>
+    public ScriptSpec Script;
 
     public List<EditKey> Track(string name)
     {
@@ -111,12 +113,22 @@ public sealed class EditObject
         o.RandomY = (double[])RandomY?.Clone();
         o.RandomRot = (double[])RandomRot?.Clone();
         o.Choices = Choices.Select(c => c.Clone()).ToList();
+        o.Script = Script?.Clone();
         o.Tracks = new Dictionary<string, List<EditKey>>();
         foreach (var kv in Tracks) o.Tracks[kv.Key] = kv.Value.Select(k => k.Clone()).ToList();
         return o;
     }
 
     public double Duration => End - Start;
+}
+
+/// <summary>The script an object runs and the values of its parameters.</summary>
+public sealed class ScriptSpec
+{
+    public string Name = "";
+    public Dictionary<string, object> Params = new();
+
+    public ScriptSpec Clone() => new() { Name = Name, Params = new Dictionary<string, object>(Params) };
 }
 
 /// <summary>A choice condition: the group rolls 0..Count-1 once per play (see the level format).</summary>
@@ -309,6 +321,29 @@ public sealed class LevelDocument
             if (!string.IsNullOrEmpty(o.RandomSeed)) w.WriteString("seed", o.RandomSeed);
             w.WriteEndObject();
         }
+        if (o.Script != null)
+        {
+            w.WriteStartObject("script");
+            w.WriteString("name", o.Script.Name);
+            if (o.Script.Params.Count > 0)
+            {
+                w.WriteStartObject("params");
+                foreach (var kv in o.Script.Params.OrderBy(k => k.Key, StringComparer.Ordinal))
+                {
+                    switch (kv.Value)
+                    {
+                        case bool bv: w.WriteBoolean(kv.Key, bv); break;
+                        case string sv: w.WriteString(kv.Key, sv); break;
+                        case double dv: Num(w, kv.Key, dv); break;
+                        case int iv: w.WriteNumber(kv.Key, iv); break;
+                        case null: break;
+                        default: w.WriteString(kv.Key, kv.Value.ToString()); break;
+                    }
+                }
+                w.WriteEndObject();
+            }
+            w.WriteEndObject();
+        }
         if (o.Choices.Count > 0)
         {
             w.WriteStartArray("choice");
@@ -468,88 +503,7 @@ public sealed class LevelDocument
             foreach (var on in objs)
             {
                 if (on is not JsonObject o) continue;
-                var eo = new EditObject
-                {
-                    Id = (string)o["id"] ?? d.NewId(),
-                    Name = (string)o["name"] ?? "",
-                    Start = D(o["start"], 0),
-                    Warn = D(o["warn"], 0),
-                    End = D(o["end"], 1000),
-                    Outro = D(o["outro"], 0),
-                    Hitbox = o["hitbox"] is JsonValue hb ? hb.GetValue<bool>() : true,
-                    HitboxScale = D(o["hitboxScale"], 1),
-                    Color = (string)o["color"],
-                    Layer = (int)D(o["layer"], 0),
-                    Parent = (string)o["parent"],
-                };
-                if (o["pivot"] is JsonArray pv && pv.Count >= 2) { eo.PivotX = D(pv[0], 0); eo.PivotY = D(pv[1], 0); }
-                if (o["random"] is JsonObject rnd)
-                {
-                    static double[] Range(JsonNode n) => n is JsonArray a && a.Count >= 2 ? new[] { D(a[0], 0), D(a[1], 0) } : null;
-                    eo.RandomX = Range(rnd["x"]);
-                    eo.RandomY = Range(rnd["y"]);
-                    eo.RandomRot = Range(rnd["rot"]);
-                    eo.RandomSeed = (string)rnd["seed"];
-                }
-                if (o["choice"] is JsonNode chn)
-                {
-                    var list = chn is JsonArray arr ? arr.OfType<JsonObject>() : chn is JsonObject one ? new[] { one } : Enumerable.Empty<JsonObject>();
-                    foreach (var c in list)
-                    {
-                        static List<int> Ints(JsonNode n) => n is JsonArray a ? a.Select(v => (int)D(v, 0)).ToList() : new List<int>();
-                        eo.Choices.Add(new ChoiceSpec { Group = (string)c["group"] ?? "", Count = (int)D(c["count"], 2), Show = Ints(c["show"]), Hide = Ints(c["hide"]) });
-                    }
-                }
-                if (o["imposter"] is JsonObject im)
-                {
-                    var m = new ImposterSpec { Mode = (string)im["mode"] == "straight" ? "straight" : "chase" };
-                    m.Angle = D(im["angle"], m.Angle);
-                    m.Speed = D(im["speed"], m.Speed);
-                    m.DashSpeed = D(im["dashSpeed"], m.DashSpeed);
-                    m.DashDrag = D(im["dashDrag"], m.DashDrag);
-                    m.DashTime = D(im["dashTime"], m.DashTime);
-                    m.DashEvery = D(im["dashEvery"], m.DashEvery);
-                    m.DashBeats = Math.Max(0, D(im["dashBeats"], 0));
-                    m.FirstDash = D(im["firstDash"], m.FirstDash);
-                    m.StopAt = D(im["stopAt"], m.StopAt);
-                    m.StopFor = D(im["stopFor"], m.StopFor);
-                    m.LeaveAt = D(im["leaveAt"], m.LeaveAt);
-                    m.StopDash = im["stopDash"] is JsonValue sdv ? sdv.GetValue<bool>() : true;
-                    m.ArriveFrom = D(im["arriveFrom"], -1);
-                    m.ArriveAt = D(im["arriveAt"], -1);
-                    m.ArriveEase = (string)im["arriveEase"] ?? "inQuad";
-                    m.Bounds = im["bounds"] is JsonValue bv ? bv.GetValue<bool>() : m.Mode == "chase";
-                    m.StretchSpeed = D(im["stretchSpeed"], m.StretchSpeed);
-                    m.StretchMax = D(im["stretchMax"], m.StretchMax);
-                    m.Effects = im["effects"] is JsonValue ev ? ev.GetValue<bool>() : true;
-                    m.DashPulse = (string)im["dashPulse"] == "disk" ? "disk" : "ring";
-                    eo.Imposter = m;
-                }
-                if (o["shape"] is JsonObject sh)
-                {
-                    eo.Shape.Type = (string)sh["type"] ?? "rect";
-                    eo.Shape.Sides = (int)D(sh["sides"], 3);
-                    eo.Shape.Points = (int)D(sh["points"], 5);
-                    eo.Shape.Spikes = (int)D(sh["spikes"], 12);
-                    eo.Shape.Inner = D(sh["inner"], eo.Shape.Type == "spikes" ? 0.75 : 0.5);
-                    eo.Shape.Thickness = D(sh["thickness"], 0.12);
-                    eo.Shape.Text = (string)sh["text"] ?? "";
-                    eo.Shape.Bold = sh["bold"] is JsonValue bv ? bv.GetValue<bool>() : true;
-                }
-                if (o["tracks"] is JsonObject tr)
-                {
-                    foreach (var name in EditObject.TrackNames)
-                    {
-                        if (tr[name] is not JsonArray keys) continue;
-                        var list = eo.Track(name);
-                        foreach (var k in keys)
-                        {
-                            if (k is not JsonArray ka || ka.Count < 2) continue;
-                            list.Add(new EditKey { T = D(ka[0], 0), V = D(ka[1], 0), Ease = ka.Count > 2 ? (string)ka[2] ?? "linear" : "linear" });
-                        }
-                        list.Sort((a, b) => a.T.CompareTo(b.T));
-                    }
-                }
+                var eo = ReadObject(o, d.NewId);
                 if (groups != null && groups[eo.Id] is JsonValue g) eo.Group = g.GetValue<string>();
                 d.Objects.Add(eo);
             }
@@ -594,6 +548,106 @@ public sealed class LevelDocument
             if (o.Id.Length > 1 && o.Id[0] == 'o' && int.TryParse(o.Id[1..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
                 d.nextId = Math.Max(d.nextId, n + 1);
         return d;
+    }
+
+    /// <summary>One object of level.json (as written by the editor, the loader's format, or a pattern script).</summary>
+    public static EditObject ReadObject(JsonObject o, Func<string> newId)
+    {
+        var eo = new EditObject
+        {
+            Id = (string)o["id"] ?? newId(),
+            Name = (string)o["name"] ?? "",
+            Start = D(o["start"], 0),
+            Warn = D(o["warn"], 0),
+            End = D(o["end"], 1000),
+            Outro = D(o["outro"], 0),
+            Hitbox = o["hitbox"] is JsonValue hb ? hb.GetValue<bool>() : true,
+            HitboxScale = D(o["hitboxScale"], 1),
+            Color = (string)o["color"],
+            Layer = (int)D(o["layer"], 0),
+            Parent = (string)o["parent"],
+        };
+        if (o["pivot"] is JsonArray pv && pv.Count >= 2) { eo.PivotX = D(pv[0], 0); eo.PivotY = D(pv[1], 0); }
+        if (o["random"] is JsonObject rnd)
+        {
+            static double[] Range(JsonNode n) => n is JsonArray a && a.Count >= 2 ? new[] { D(a[0], 0), D(a[1], 0) } : null;
+            eo.RandomX = Range(rnd["x"]);
+            eo.RandomY = Range(rnd["y"]);
+            eo.RandomRot = Range(rnd["rot"]);
+            eo.RandomSeed = (string)rnd["seed"];
+        }
+        if (o["choice"] is JsonNode chn)
+        {
+            var list = chn is JsonArray arr ? arr.OfType<JsonObject>() : chn is JsonObject one ? new[] { one } : Enumerable.Empty<JsonObject>();
+            foreach (var c in list)
+            {
+                static List<int> Ints(JsonNode n) => n is JsonArray a ? a.Select(v => (int)D(v, 0)).ToList() : new List<int>();
+                eo.Choices.Add(new ChoiceSpec { Group = (string)c["group"] ?? "", Count = (int)D(c["count"], 2), Show = Ints(c["show"]), Hide = Ints(c["hide"]) });
+            }
+        }
+        if (o["imposter"] is JsonObject im)
+        {
+            var m = new ImposterSpec { Mode = (string)im["mode"] == "straight" ? "straight" : "chase" };
+            m.Angle = D(im["angle"], m.Angle);
+            m.Speed = D(im["speed"], m.Speed);
+            m.DashSpeed = D(im["dashSpeed"], m.DashSpeed);
+            m.DashDrag = D(im["dashDrag"], m.DashDrag);
+            m.DashTime = D(im["dashTime"], m.DashTime);
+            m.DashEvery = D(im["dashEvery"], m.DashEvery);
+            m.DashBeats = Math.Max(0, D(im["dashBeats"], 0));
+            m.FirstDash = D(im["firstDash"], m.FirstDash);
+            m.StopAt = D(im["stopAt"], m.StopAt);
+            m.StopFor = D(im["stopFor"], m.StopFor);
+            m.LeaveAt = D(im["leaveAt"], m.LeaveAt);
+            m.StopDash = im["stopDash"] is JsonValue sdv ? sdv.GetValue<bool>() : true;
+            m.ArriveFrom = D(im["arriveFrom"], -1);
+            m.ArriveAt = D(im["arriveAt"], -1);
+            m.ArriveEase = (string)im["arriveEase"] ?? "inQuad";
+            m.Bounds = im["bounds"] is JsonValue bv ? bv.GetValue<bool>() : m.Mode == "chase";
+            m.StretchSpeed = D(im["stretchSpeed"], m.StretchSpeed);
+            m.StretchMax = D(im["stretchMax"], m.StretchMax);
+            m.Effects = im["effects"] is JsonValue ev ? ev.GetValue<bool>() : true;
+            m.DashPulse = (string)im["dashPulse"] == "disk" ? "disk" : "ring";
+            eo.Imposter = m;
+        }
+        if (o["shape"] is JsonObject sh)
+        {
+            eo.Shape.Type = (string)sh["type"] ?? "rect";
+            eo.Shape.Sides = (int)D(sh["sides"], 3);
+            eo.Shape.Points = (int)D(sh["points"], 5);
+            eo.Shape.Spikes = (int)D(sh["spikes"], 12);
+            eo.Shape.Inner = D(sh["inner"], eo.Shape.Type == "spikes" ? 0.75 : 0.5);
+            eo.Shape.Thickness = D(sh["thickness"], 0.12);
+            eo.Shape.Text = (string)sh["text"] ?? "";
+            eo.Shape.Bold = sh["bold"] is JsonValue bv ? bv.GetValue<bool>() : true;
+        }
+        if (o["tracks"] is JsonObject tr)
+        {
+            foreach (var name in EditObject.TrackNames)
+            {
+                if (tr[name] is not JsonArray keys) continue;
+                var list = eo.Track(name);
+                foreach (var k in keys)
+                {
+                    if (k is not JsonArray ka || ka.Count < 2) continue;
+                    list.Add(new EditKey { T = D(ka[0], 0), V = D(ka[1], 0), Ease = ka.Count > 2 ? (string)ka[2] ?? "linear" : "linear" });
+                }
+                list.Sort((a, b) => a.T.CompareTo(b.T));
+            }
+        }
+        if (o["script"] is JsonObject so && (string)so["name"] is string sname && sname.Length > 0)
+        {
+            eo.Script = new ScriptSpec { Name = sname };
+            if (so["params"] is JsonObject sp)
+                foreach (var kv in sp)
+                {
+                    if (kv.Value is not JsonValue sv2) continue;
+                    if (sv2.TryGetValue<bool>(out var pb)) eo.Script.Params[kv.Key] = pb;
+                    else if (sv2.TryGetValue<string>(out var ps)) eo.Script.Params[kv.Key] = ps;
+                    else eo.Script.Params[kv.Key] = D(sv2, 0);
+                }
+        }
+        return eo;
     }
 
     private static double D(JsonNode n, double fallback)

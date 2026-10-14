@@ -113,6 +113,21 @@ internal static class GameBridge
         catch { }
     }
 
+    /// <summary>Puts a player somewhere (scripts' movePlayer).</summary>
+    public static void MoveHero(int number, float x, float y)
+    {
+        try
+        {
+            var cols = Hero.allCollisionEnemy;
+            for (int i = 0; cols != null && i < cols.length; i++)
+            {
+                var hero = cols[i]?.actor?.TryCast<Hero>();
+                if (hero?.modelPlayer != null && hero.modelPlayer.getPlayerNumber() == number) hero.setPos(x, y);
+            }
+        }
+        catch { }
+    }
+
     private static Actor attacker;
 
     /// <summary>

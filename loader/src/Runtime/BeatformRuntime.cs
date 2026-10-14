@@ -134,9 +134,9 @@ public class BeatformRuntime : MonoBehaviour
                 GameBridge.HitHero(h, (float)c.X, (float)c.Y);
             }
             RunShakes(level.Data, t);
-            RunSounds(level.Data, t);
+            RunSounds(level, t);
         }
-        ApplyCamera(level.Evaluator.SwayAt(t), level.Evaluator.ZoomAt(t));
+        ApplyCamera(level.Evaluator.CameraAt(t));
         ApplyPlayerSpeed(frozen ? 1 : PlayerSpeedOverride ?? (float)level.Evaluator.PlayerSpeedAt(t),
             frozen ? 1 : PlayerTurnOverride ?? (float)level.Evaluator.PlayerTurnAt(t));
         if (Settings.DevConsole)
@@ -169,15 +169,33 @@ public class BeatformRuntime : MonoBehaviour
 
     /// <summary>Sound events play when playback crosses them, like shakes; jumps skip them.</summary>
     [HideFromIl2Cpp]
-    private void RunSounds(LevelData data, double t)
+    private void RunSounds(LoadedLevel level, double t)
     {
         if (double.IsNaN(lastSongTime) || t <= lastSongTime || t - lastSongTime >= 250) return;
-        foreach (var e in data.Events)
+        foreach (var e in level.Data.Events)
         {
             if (e.T > t) break;
             if (e.Type == Core.EventType.Sound && e.T > lastSongTime) GameBridge.PlayGameSound(e.Sound, (float)e.Volume);
         }
+        // What scripts did since the last frame: sounds, hits, teleports.
+        level.Evaluator.ScriptSignals(lastSongTime, t, signals);
+        foreach (var s in signals)
+        {
+            switch (s.Kind)
+            {
+                case "sound": GameBridge.PlayGameSound(s.Name, (float)s.Volume); break;
+                case "hit":
+                    foreach (var h in heroes) if (h.Number == s.Player && !h.Dead) GameBridge.HitHero(h, h.X, h.Y);
+                    break;
+                case "move": GameBridge.MoveHero(s.Player, (float)s.X, (float)s.Y); break;
+            }
+        }
+        var errors = level.Evaluator.Scripts?.Errors;
+        if (errors != null) while (reportedErrors < errors.Count) Plugin.Logger.LogWarning("script error: " + errors[reportedErrors++]);
     }
+
+    private readonly List<ScriptSignal> signals = new();
+    private int reportedErrors;
 
     private double furthestSongTime = double.NaN;
     private bool heroesHidden;
@@ -207,11 +225,9 @@ public class BeatformRuntime : MonoBehaviour
     /// zoom apply only the change since the last frame; the position is shifted every frame from where
     /// the game puts it, so the game's own camera moves (kicks, shakes) keep working.
     /// </summary>
-    private void ApplyCamera((double Rotation, double X, double Y) sway, (double Scale, double X, double Y) zoom)
+    private void ApplyCamera(CameraState cam)
     {
-        // Zooming by s on the point F keeps F where it is: everything else moves by F·(1 − s).
-        float s = (float)zoom.Scale, r = (float)sway.Rotation;
-        float x = (float)(sway.X + zoom.X * (1 - zoom.Scale)), y = (float)(sway.Y + zoom.Y * (1 - zoom.Scale));
+        float s = (float)cam.Scale, r = (float)cam.Rotation, x = (float)cam.X, y = (float)cam.Y;
         GameBridge.ShiftCamera(x, y);
         swayX = x; swayY = y;
         if (r == swayRot && s == camScale) return;
@@ -279,6 +295,7 @@ public class BeatformRuntime : MonoBehaviour
         ResetSway();
         ApplyPlayerSpeed(1);
         furthestSongTime = double.NaN;
+        reportedErrors = 0;
         if (heroesHidden) { GameBridge.ShowHeroes(true); heroesHidden = false; }
         sessionStartedAt = 0;
         sessionSeenInGame = false;

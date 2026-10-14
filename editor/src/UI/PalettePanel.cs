@@ -1,19 +1,23 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Beatform.Core;
 using Beatform.Editor.Model;
+using Beatform.Editor.Scripts;
 using Godot;
 
 namespace Beatform.Editor.UI;
 
 /// <summary>
-/// Things to add: plain shapes, patterns and scene items. Click to add at the playhead in the middle
-/// of the stage (patterns open their settings first), or drag onto the stage to place them.
+/// Things to add: plain shapes, scripted attacks and effects, patterns and scene items. Click to add at
+/// the playhead in the middle of the stage (patterns open their settings first), or drag onto the stage.
+/// Attacks, effects and patterns are scripts: the level's own (scripts/) and the built-in library.
 /// </summary>
 public partial class PalettePanel : PanelContainer
 {
     private static EditorState S => EditorState.I;
     private readonly Dictionary<string, Pattern> patterns = new();
+    private VBoxContainer scriptBox;
 
     private static readonly (string id, string label, string tip)[] Shapes =
     {
@@ -24,7 +28,7 @@ public partial class PalettePanel : PanelContainer
         ("star", "★  Star", "Five-pointed star"),
         ("ring", "◯  Ring", "Ring with a safe hole"),
         ("spikes", "✹  Spike ball", "Round spiky ball"),
-        ("text", "A  Text", "Words drawn with Beatform's stroke font"),
+        ("text", "A  Text", "Words in Beatform's font"),
         ("imposter", "◆  Imposter", "A copy of a player that chases the nearest one, dashing like a player"),
     };
 
@@ -40,14 +44,10 @@ public partial class PalettePanel : PanelContainer
         box.AddChild(UiTheme.Heading("Shapes"));
         foreach (var (id, label, tip) in Shapes) box.AddChild(Item("shape:" + id, label, tip + ". Click to add at the playhead, or drag onto the stage."));
 
-        box.AddChild(new HSeparator());
-        box.AddChild(UiTheme.Heading("Patterns"));
-        foreach (var make in Pattern.All)
-        {
-            var p = make();
-            patterns[p.Id] = p;
-            box.AddChild(Item("pattern:" + p.Id, "✦  " + p.Name, p.Description + " Click to set it up, or drag onto the stage to use the last settings."));
-        }
+        scriptBox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        scriptBox.AddThemeConstantOverride("separation", 4);
+        box.AddChild(scriptBox);
+        RefreshScripts();
 
         box.AddChild(new HSeparator());
         box.AddChild(UiTheme.Heading("Scene"));
@@ -62,6 +62,52 @@ public partial class PalettePanel : PanelContainer
         box.AddChild(Item("scene:zoom", "+  Camera zoom", "Zooms the camera in or out from here on, on a point or on the player."));
     }
 
+    /// <summary>Rebuilds the scripted sections (attacks, effects, patterns) from the level and library scripts.</summary>
+    public void RefreshScripts()
+    {
+        if (scriptBox == null) return;
+        foreach (var c in scriptBox.GetChildren()) c.QueueFree();
+        var all = ScriptsService.I.All.ToList();
+        var lastSettings = new Dictionary<string, Pattern>(patterns);
+        patterns.Clear();
+
+        void Section(string title, IEnumerable<ScriptType> list, string prefix, string icon, string hint)
+        {
+            var items = list.OrderBy(t => t.Title, StringComparer.OrdinalIgnoreCase).ToList();
+            if (items.Count == 0) return;
+            scriptBox.AddChild(new HSeparator());
+            scriptBox.AddChild(UiTheme.Heading(title));
+            foreach (var t in items)
+            {
+                string mine = ScriptsService.I.IsInLevel(t.Name) ? " (this level)" : "";
+                string err = t.CompileError != null ? "  ⚠" : "";
+                scriptBox.AddChild(Item(prefix + t.Name, $"{icon}  {t.Title}{err}", (t.Description ?? "") + mine + hint
+                    + (t.CompileError != null ? "\n\nError: " + t.CompileError : "")));
+            }
+        }
+
+        bool IsEffect(ScriptType t) => t.Kind == ScriptKind.Attack && (ScriptsService.I.LibraryCategory(t.Name) == "effects"
+            || (t.Category ?? "") is "Camera" or "Screen" or "Effects");
+        Section("Attacks", all.Where(t => t.Kind == ScriptKind.Attack && !IsEffect(t)), "script:", "⚡",
+            " Runs live in the game. Click to add at the playhead, or drag onto the stage.");
+        Section("Effects", all.Where(IsEffect), "script:", "✺",
+            " Runs live in the game. Click to add at the playhead.");
+        foreach (var t in all.Where(t => t.Kind == ScriptKind.Pattern && t.CompileError == null))
+            patterns[t.Name] = lastSettings.TryGetValue(t.Name, out var old) && old.Script == t ? old : new Pattern(t);
+        Section("Patterns", all.Where(t => t.Kind == ScriptKind.Pattern), "pattern:", "✦",
+            " Builds ordinary objects you can edit. Click to set it up, or drag onto the stage to use the last settings.");
+
+        var buttons = new HBoxContainer();
+        var add = new Button { Text = "+ New script", TooltipText = "Write your own attack, effect or pattern (JavaScript).", SizeFlagsHorizontal = SizeFlags.ExpandFill, FocusMode = FocusModeEnum.None };
+        add.Pressed += () => ScriptEditorWindow.ShowNew(this);
+        buttons.AddChild(add);
+        var code = new Button { Text = "{ } Code", TooltipText = "Open the script editor.", FocusMode = FocusModeEnum.None };
+        code.Pressed += () => ScriptEditorWindow.Open(null);
+        buttons.AddChild(code);
+        scriptBox.AddChild(new HSeparator());
+        scriptBox.AddChild(buttons);
+    }
+
     private Control Item(string id, string label, string tip)
     {
         var b = new PaletteButton { Text = label, TooltipText = tip, Alignment = HorizontalAlignment.Left, PayloadId = id };
@@ -74,7 +120,7 @@ public partial class PalettePanel : PanelContainer
     {
         if (id.StartsWith("pattern:"))
         {
-            var p = patterns[id[8..]];
+            if (!patterns.TryGetValue(id[8..], out var p)) { ScriptEditorWindow.Open(id[8..]); return; }
             PatternDialog.Show(this, p, () => AddPattern(p, 0, 0));
             return;
         }
@@ -86,7 +132,8 @@ public partial class PalettePanel : PanelContainer
     {
         double t = S.Playhead;
         double beat = S.Doc.BeatMs;
-        if (id.StartsWith("pattern:")) { AddPattern(patterns[id[8..]], x, y); return; }
+        if (id.StartsWith("pattern:")) { if (patterns.TryGetValue(id[8..], out var pat)) AddPattern(pat, x, y); return; }
+        if (id.StartsWith("script:")) { AddScript(id[7..], x, y); return; }
         if (id.StartsWith("scene:"))
         {
             switch (id[6..])
@@ -180,13 +227,45 @@ public partial class PalettePanel : PanelContainer
 
     private void AddPattern(Pattern p, double x, double y)
     {
-        List<EditObject> objs = null;
-        S.Edit("Add " + p.Name, () =>
+        var objs = p.Build(S.Doc, S.Playhead, Math.Round(x), Math.Round(y), out var error);
+        if (error != null) { App.Instance.Status("Pattern failed: " + error, true); ScriptEditorWindow.Open(p.Id); return; }
+        if (objs.Count == 0) { App.Instance.Status($"{p.Name} added nothing.", true); return; }
+        S.Edit("Add " + p.Name, () => S.Doc.Objects.AddRange(objs));
+        S.Select(objs.Select(o => o.Id));
+    }
+
+    /// <summary>Places a script from its name: patterns open their settings first.</summary>
+    public void Place(string name)
+    {
+        if (patterns.TryGetValue(name, out var p)) { PatternDialog.Show(this, p, () => AddPattern(p, 0, 0)); return; }
+        var t = ScriptsService.I.Find(name);
+        if (t == null) { App.Instance.Status($"No script named '{name}'.", true); return; }
+        if (t.CompileError != null) { App.Instance.Status("Fix the script first: " + t.CompileError, true); return; }
+        if (t.Kind == ScriptKind.Pattern) { App.Instance.Status($"{t.Title} could not be loaded.", true); return; }
+        AddScript(name, 0, 0);
+    }
+
+    /// <summary>Places a scripted attack or effect: an object that runs the script, starting at the playhead.</summary>
+    public void AddScript(string name, double x, double y)
+    {
+        if (!ScriptsService.I.EnsureInLevel(name, out var error)) { App.Instance.Status(error, true); return; }
+        var type = ScriptsService.I.FindInLevel(name);
+        double beats = type?.LengthBeats > 0 ? type.LengthBeats : 8;
+        var o = new EditObject
         {
-            objs = p.Build(S.Doc, S.Playhead, Math.Round(x), Math.Round(y));
-            S.Doc.Objects.AddRange(objs);
-        });
-        if (objs != null) S.Select(objs.Select(o => o.Id));
+            Id = S.Doc.NewId(),
+            Name = type?.Title ?? name,
+            Start = Math.Round(S.Playhead, 3),
+            End = Math.Round(S.Playhead + beats * S.Doc.BeatMs, 3),
+            Script = new ScriptSpec { Name = name },
+            Hitbox = true,
+        };
+        o.Track("x").Add(new EditKey { T = 0, V = Math.Round(x) });
+        o.Track("y").Add(new EditKey { T = 0, V = Math.Round(y) });
+        o.Track("w").Add(new EditKey { T = 0, V = 40 });
+        o.Track("h").Add(new EditKey { T = 0, V = 40 });
+        S.Edit("Add " + o.Name, () => S.Doc.Objects.Add(o));
+        S.Select(new[] { o.Id });
     }
 
     private partial class PaletteButton : Button
@@ -206,6 +285,49 @@ public partial class PalettePanel : PanelContainer
 /// <summary>Settings dialog for a pattern, built from its parameter list.</summary>
 public static class PatternDialog
 {
+    /// <summary>An input for one script parameter, writing into it as it changes.</summary>
+    public static Control ParamField(PatternParam param)
+    {
+        switch (param.Kind)
+        {
+            case "bool":
+            {
+                var cb = new CheckBox { ButtonPressed = param.Flag, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                cb.Toggled += v => param.Flag = v;
+                return cb;
+            }
+            case "text":
+            {
+                var le = new LineEdit { Text = param.Text, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                le.TextChanged += v => param.Text = v;
+                return le;
+            }
+            case "color":
+            {
+                var cp = new ColorPickerButton { Color = Color.FromString(string.IsNullOrEmpty(param.Text) ? "#ffffff" : param.Text, Colors.White), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 26) };
+                cp.ColorChanged += c => param.Text = "#" + c.ToHtml(false);
+                return cp;
+            }
+            case "choice" or "ease" or "shape":
+            {
+                var ob = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                var opts = param.Choices ?? Array.Empty<string>();
+                foreach (var c in opts) ob.AddItem(c);
+                int sel = Array.IndexOf(opts, param.Text);
+                ob.Selected = sel >= 0 ? sel : 0;
+                ob.ItemSelected += i => param.Text = opts[(int)i];
+                return ob;
+            }
+            default:
+            {
+                var sb = new SpinBox { MinValue = param.Min, MaxValue = param.Max, Step = param.Kind == "int" ? Math.Max(1, param.Step) : param.Step, Value = param.Value, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SelectAllOnFocus = true, AllowGreater = true, AllowLesser = true };
+                if (param.Kind == "beats") sb.Suffix = "beats";
+                sb.ValueChanged += v => param.Value = v;
+                return sb;
+            }
+        }
+    }
+
     public static void Show(Node parent, Pattern p, Action onAdd)
     {
         var dlg = new ConfirmationDialog { Title = p.Name, OkButtonText = "Add at playhead", MinSize = new Vector2I(420, 0) };
@@ -217,20 +339,7 @@ public static class PatternDialog
             var row = new HBoxContainer();
             var l = new Label { Text = param.Label, CustomMinimumSize = new Vector2(150, 0), TooltipText = param.Tooltip ?? "" };
             row.AddChild(l);
-            if (param.Choices != null)
-            {
-                var ob = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-                foreach (var c in param.Choices) ob.AddItem(c);
-                ob.Selected = (int)param.Value;
-                ob.ItemSelected += i => param.Value = i;
-                row.AddChild(ob);
-            }
-            else
-            {
-                var sb = new SpinBox { MinValue = param.Min, MaxValue = param.Max, Step = param.Step, Value = param.Value, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SelectAllOnFocus = true };
-                sb.ValueChanged += v => param.Value = v;
-                row.AddChild(sb);
-            }
+            row.AddChild(ParamField(param));
             box.AddChild(row);
         }
         box.AddChild(UiTheme.Small("It becomes dangerous at the playhead. Drag the pattern from the palette onto the stage to place it somewhere else with these settings."));

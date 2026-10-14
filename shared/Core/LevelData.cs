@@ -23,6 +23,28 @@ public struct Rgba
 
     public static Rgba Lerp(Rgba a, Rgba b, float t) =>
         new(a.R + (b.R - a.R) * t, a.G + (b.G - a.G) * t, a.B + (b.B - a.B) * t, a.A + (b.A - a.A) * t);
+
+    public string ToHex()
+    {
+        static string H(float v) => ((int)Math.Round(Math.Clamp(v, 0, 1) * 255)).ToString("x2");
+        return "#" + H(R) + H(G) + H(B) + (A < 1 ? H(A) : "");
+    }
+}
+
+/// <summary>An object that runs a script (scripts/NAME.js in the level folder) with these parameters.</summary>
+public sealed class ScriptRef
+{
+    public string Name = "";
+    public Dictionary<string, object> Params = new();
+
+    public static object ToClr(JsonElement v) => v.ValueKind switch
+    {
+        JsonValueKind.Number => v.GetDouble(),
+        JsonValueKind.String => v.GetString(),
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        _ => null,
+    };
 }
 
 public struct Keyframe
@@ -105,6 +127,8 @@ public sealed class LevelObject
     public bool ColorFromPlayer;
     /// <summary>Moves like a player instead of following its x/y tracks. Null for ordinary objects.</summary>
     public ImposterBehavior Imposter;
+    /// <summary>Runs a script instead of drawing a shape (its x/y/rot at the start are where it spawns). Null otherwise.</summary>
+    public ScriptRef Script;
     public double PivotX, PivotY;
     public Track X = new() { Default = 0 };
     public Track Y = new() { Default = 0 };
@@ -197,6 +221,18 @@ public sealed class LevelData
     public List<double> Checkpoints = new() { 0 };
     public List<LevelObject> Objects = new();
     public List<LevelEvent> Events = new();
+    /// <summary>The level's scripts by name (scripts/*.js), filled in by whoever loaded the folder.</summary>
+    public Dictionary<string, string> ScriptSources = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Reads scripts/*.js of a level folder into <see cref="ScriptSources"/>.</summary>
+    public void LoadScripts(string levelFolder)
+    {
+        ScriptSources.Clear();
+        var dir = System.IO.Path.Combine(levelFolder, "scripts");
+        if (!System.IO.Directory.Exists(dir)) return;
+        foreach (var f in System.IO.Directory.GetFiles(dir, "*.js"))
+            ScriptSources[System.IO.Path.GetFileNameWithoutExtension(f)] = System.IO.File.ReadAllText(f);
+    }
 
     public static LevelData Parse(string json)
     {
@@ -324,6 +360,12 @@ public sealed class LevelData
         }
         if (o.TryGetProperty("shape", out var sh)) obj.Shape = ParseShape(sh);
         if (o.TryGetProperty("imposter", out var imp) && imp.ValueKind == JsonValueKind.Object) obj.Imposter = ImposterBehavior.Parse(imp);
+        if (o.TryGetProperty("script", out var scr) && scr.ValueKind == JsonValueKind.Object && Str(scr, "name") is string sname && sname.Length > 0)
+        {
+            obj.Script = new ScriptRef { Name = sname };
+            if (scr.TryGetProperty("params", out var sp) && sp.ValueKind == JsonValueKind.Object)
+                foreach (var prop in sp.EnumerateObject()) obj.Script.Params[prop.Name] = ScriptRef.ToClr(prop.Value);
+        }
         obj.PlayerAnchor = PlayerAnchorOf(obj.ParentId);
         if (obj.ColorFromPlayer) obj.Color = DefaultPlayerColor;
         if (o.TryGetProperty("random", out var rnd) && rnd.ValueKind == JsonValueKind.Object)

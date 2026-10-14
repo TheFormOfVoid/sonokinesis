@@ -54,6 +54,8 @@ public sealed class ShapeGeometry
     public Vec2[] Outline;
     /// <summary>For rings: the inner hole outline. Null otherwise.</summary>
     public Vec2[] Hole;
+    /// <summary>For one-off script polygons: where the unit square goes (centre and size). Null otherwise.</summary>
+    public (double X, double Y, double W, double H)? Placement;
 
     private static readonly Dictionary<string, ShapeGeometry> cache = new();
 

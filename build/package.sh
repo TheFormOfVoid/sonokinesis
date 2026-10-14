@@ -27,7 +27,7 @@ echo "== core tests"
 
 echo "== loader"
 (cd loader/src && dotnet build -c Release -nologo -v q | grep -E "error|Error\(s\)")
-cp loader/src/bin/Release/{Beatform.Loader.dll,NVorbis.dll,NLayer.dll} "$OUT/loader/plugin/"
+cp loader/src/bin/Release/{Beatform.Loader.dll,NVorbis.dll,NLayer.dll,Jint.dll,Acornima.dll} "$OUT/loader/plugin/"
 
 echo "== BepInEx"
 if [ ! -f "$CACHE/bepinex.zip" ] || ! echo "$BEPINEX_SHA256  $CACHE/bepinex.zip" | sha256sum -c --status -; then

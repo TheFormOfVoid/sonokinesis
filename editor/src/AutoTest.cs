@@ -10,7 +10,8 @@ namespace Beatform.Editor;
 /// Runs a script of editor actions, one per line, and saves screenshots. Used to check the editor
 /// without clicking: `godot --path editor -- --autotest script.txt`.
 /// Commands: open DIR · at MS · select IDS|all|none|group:G · shot FILE · wait FRAMES · play · stop ·
-/// key NAME · palette ITEM X Y · save · undo · quit
+/// key NAME · palette ITEM X Y · save · undo · quit · code NAME · codeshot FILE · codeset FILE · codesave ·
+/// newscript NAME KIND · param KEY VALUE · report
 /// </summary>
 public sealed class AutoTest
 {
@@ -69,6 +70,48 @@ public sealed class AutoTest
                 }
                 case "bpm": s.Edit("BPM", () => s.Doc.Bpm = double.Parse(arg, System.Globalization.CultureInfo.InvariantCulture)); break;
                 case "testingame": app.TestInGameNow(); wait = 5; break;
+                case "code": UI.ScriptEditorWindow.Open(arg.Length > 0 ? arg : null); wait = 15; break;
+                case "codeshot":
+                {
+                    var w = UI.ScriptEditorWindow.Current ?? throw new Exception("the script editor is not open");
+                    var cimg = w.GetTexture().GetImage();
+                    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(arg)));
+                    cimg.SavePng(arg);
+                    break;
+                }
+                case "codeset": (UI.ScriptEditorWindow.Current ?? throw new Exception("the script editor is not open")).SetText(File.ReadAllText(arg)); wait = 45; break;
+                case "codesave": UI.ScriptEditorWindow.Current?.SaveNow(); wait = 10; break;
+                case "newscript":
+                {
+                    var a = arg.Split(' ');
+                    if (Scripts.ScriptsService.I.Create(a[0], a.Length > 1 ? a[1] : "attack", out var err) == null) throw new Exception(err);
+                    UI.ScriptEditorWindow.Open(a[0]);
+                    wait = 15;
+                    break;
+                }
+                case "param":
+                {
+                    // param KEY VALUE: sets a setting of the selected scripted object
+                    var a = arg.Split(' ', 2);
+                    var o = s.Primary?.Script ?? throw new Exception("select a scripted object first");
+                    object v = double.TryParse(a[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d
+                        : a[1] == "true" ? true : a[1] == "false" ? false : a[1];
+                    s.Edit("Set " + a[0], () => o.Params[a[0]] = v);
+                    wait = 3;
+                    break;
+                }
+                case "report":
+                {
+                    foreach (var e in Scripts.ScriptsService.I.LevelCompileErrors) GD.Print("autotest: compile error " + e);
+                    var host = s.Evaluator?.Scripts;
+                    if (host != null)
+                    {
+                        foreach (var e in host.Errors) GD.Print("autotest: script error " + e);
+                        foreach (var l in host.Logs.TakeLast(20)) GD.Print("autotest: log " + l);
+                    }
+                    GD.Print($"autotest: objects {s.Doc.Objects.Count}, scripts in level: {string.Join(", ", Scripts.ScriptsService.I.LevelSources.Keys)}, selected {string.Join(",", s.Selected)}, status '{app.LastStatus}'");
+                    break;
+                }
                 case "save": app.Save(); break;
                 case "undo": s.Undo(); wait = 2; break;
                 case "quit": app.GetTree().Quit(); break;

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Beatform.Core;
 using Beatform.Editor.Model;
+using Beatform.Editor.Scripts;
 using Godot;
 
 namespace Beatform.Editor.UI;
@@ -42,13 +44,23 @@ public partial class InspectorPanel : PanelContainer
     {
         var o = S.Primary;
         if (o != null) return $"o:{o.Id}:{o.Shape.Type}:{string.Join(",", EditObject.TrackNames.Select(n => o.Track(n).Count))}:{S.Doc.Objects.Count}:{o.Color}"
-            + $":{o.Imposter?.Mode}:{o.Imposter?.StopAt >= 0}";
+            + $":{o.Imposter?.Mode}:{o.Imposter?.StopAt >= 0}:{ScriptSignature(o)}";
         if (S.SelectedEvent >= 0 && S.SelectedEvent < S.Doc.Events.Count) return $"e:{S.SelectedEvent}:{S.Doc.Events[S.SelectedEvent].Type}";
         if (S.SelectedCheckpoint >= 0) return $"c:{S.SelectedCheckpoint}:{S.Doc.Checkpoints.Count}";
         return $"m:{S.Selected.Count}:{S.Doc.Objects.Count}";
     }
 
-    private void OnDocChanged()
+    private static string ScriptSignature(EditObject o)
+    {
+        if (o.Script == null) return "";
+        var t = ScriptsService.I.FindInLevel(o.Script.Name);
+        return o.Script.Name + "|" + (t == null ? "missing" : string.Join(",", t.Params.Select(p => p.Key + p.Type + string.Join("/", p.Options ?? Array.Empty<string>()))) + (t.CompileError != null));
+    }
+
+    private void OnDocChanged() => Sync();
+
+    /// <summary>Rebuilds when what is shown changed shape (another script, new parameters), else refreshes values.</summary>
+    public void Sync()
     {
         if (Signature() != signature) Rebuild();
         else Refresh();
@@ -81,10 +93,10 @@ public partial class InspectorPanel : PanelContainer
         box.AddChild(UiTheme.Heading(title));
     }
 
-    private HBoxContainer Row(string label, Control field, string tooltip = null)
+    private HBoxContainer Row(string label, Control field, string tooltip = null, float labelWidth = 92)
     {
         var row = new HBoxContainer();
-        var l = new Label { Text = label, CustomMinimumSize = new Vector2(92, 0), TooltipText = tooltip ?? "", ClipText = true };
+        var l = new Label { Text = label, CustomMinimumSize = new Vector2(labelWidth, 0), TooltipText = tooltip ?? label, ClipText = true };
         l.AddThemeColorOverride("font_color", UiTheme.Dim);
         l.MouseFilter = MouseFilterEnum.Pass;
         row.AddChild(l);
@@ -124,7 +136,8 @@ public partial class InspectorPanel : PanelContainer
 
     private OptionButton Options(string[] values, Func<string> get, Action<string> set, string undoLabel, string[] labels = null)
     {
-        var ob = new OptionButton();
+        // Long items must not widen the panel.
+        var ob = new OptionButton { FitToLongestItem = false, ClipText = true };
         for (int i = 0; i < values.Length; i++) ob.AddItem(labels?[i] ?? values[i], i);
         ob.Selected = Math.Max(0, Array.IndexOf(values, get()));
         ob.ItemSelected += i => S.Edit(undoLabel, () => set(values[i]));
@@ -190,6 +203,18 @@ public partial class InspectorPanel : PanelContainer
         box.AddChild(title);
         Row("Name", Text(() => o.Name, v => o.Name = v, "Rename"));
 
+        if (o.Script != null)
+        {
+            BuildScript(o);
+            BuildTiming(o);
+            BuildRandom(o);
+            BuildParent(o);
+            Section("Spawn point at the playhead");
+            box.AddChild(UiTheme.Small("Where the script starts: this.x, this.y and this.rot (rotation) at the moment it appears. Drag the gold marker on the stage to move it."));
+            foreach (var track in new[] { "x", "y", "rot" }) BuildTrack(o, track);
+            return;
+        }
+
         Section("Shape");
         Row("Type", Options(ShapeSpec.Types, () => o.Shape.Type, v =>
             {
@@ -227,20 +252,7 @@ public partial class InspectorPanel : PanelContainer
                 break;
         }
 
-        Section("Timing");
-        Row("Appears", Num(() => o.Start, v => { double d = o.End - o.Start; o.Start = v; o.End = v + d; }, "Move in time", 1, -100000, 10000000, " ms"),
-            "Song time the object appears (its warning starts). Changing it keeps the length.");
-        Row("Warning", Num(() => o.Warn, v => o.Warn = Math.Max(0, v), "Warning length", 1, 0, 100000, " ms"), "Harmless preview before it becomes dangerous.");
-        Row("Gone at", Num(() => o.End, v => o.End = Math.Max(o.Start + 1, v), "End time", 1, -100000, 10000000, " ms"));
-        Row("Fade out", Num(() => o.Outro, v => o.Outro = Math.Max(0, v), "Fade out", 1, 0, 100000, " ms"), "Harmless fade at the end.");
-        var beats = UiTheme.Small("");
-        void UpdateBeats() => beats.Text = $"dangerous {S.FormatBeats(o.Start + o.Warn)} → {S.FormatBeats(o.End - o.Outro)}   ·   {o.Duration / S.Doc.BeatMs:0.##} beats long";
-        UpdateBeats();
-        refreshers.Add(UpdateBeats);
-        box.AddChild(beats);
-        Buttons(
-            Btn("Appear here", () => S.Edit("Start at playhead", () => { double d = o.End - o.Start; o.Start = S.Playhead; o.End = S.Playhead + d; })),
-            Btn("Hit here", () => S.Edit("Danger at playhead", () => { double d = o.End - o.Start; o.Start = S.Playhead - o.Warn; o.End = o.Start + d; }), "Moves the object so it becomes dangerous exactly at the playhead."));
+        BuildTiming(o);
 
         Section("Collision and look");
         Row("Hitbox", Check("hurts players", () => o.Hitbox, v => o.Hitbox = v, "Toggle hitbox"));
@@ -266,6 +278,40 @@ public partial class InspectorPanel : PanelContainer
         BuildImposter(o);
         BuildRandom(o);
 
+        BuildParent(o);
+
+        Buttons(Btn("Repeat…", () => ToolDialogs.ShowRepeat(App.Instance), "Add copies shifted in time, position, rotation or around a point."),
+            Btn("Duplicate", () => App.Instance.DuplicateSelection()));
+
+        Section("Animation at the playhead");
+        box.AddChild(UiTheme.Small("Values at the playhead. Dragging on the stage or typing here writes a key at the playhead once a track has two or more keys; with one key the whole object changes. Hold R while the song plays to record a path with the mouse."));
+        foreach (var track in EditObject.TrackNames) BuildTrack(o, track);
+    }
+
+    private void BuildTiming(EditObject o)
+    {
+        Section("Timing");
+        Row("Appears", Num(() => o.Start, v => { double d = o.End - o.Start; o.Start = v; o.End = v + d; }, "Move in time", 1, -100000, 10000000, " ms"),
+            "Song time the object appears (its warning starts). Changing it keeps the length.");
+        bool script = o.Script != null;
+        if (!script) Row("Warning", Num(() => o.Warn, v => o.Warn = Math.Max(0, v), "Warning length", 1, 0, 100000, " ms"), "Harmless preview before it becomes dangerous.");
+        Row("Gone at", Num(() => o.End, v => o.End = Math.Max(o.Start + 1, v), "End time", 1, -100000, 10000000, " ms"),
+            script ? "The script stops and everything it drew disappears." : null);
+        if (!script) Row("Fade out", Num(() => o.Outro, v => o.Outro = Math.Max(0, v), "Fade out", 1, 0, 100000, " ms"), "Harmless fade at the end.");
+        var beats = UiTheme.Small("");
+        void UpdateBeats() => beats.Text = script
+            ? $"runs {S.FormatBeats(o.Start)} → {S.FormatBeats(o.End)}   ·   {o.Duration / S.Doc.BeatMs:0.##} beats long"
+            : $"dangerous {S.FormatBeats(o.Start + o.Warn)} → {S.FormatBeats(o.End - o.Outro)}   ·   {o.Duration / S.Doc.BeatMs:0.##} beats long";
+        UpdateBeats();
+        refreshers.Add(UpdateBeats);
+        box.AddChild(beats);
+        Buttons(
+            Btn("Appear here", () => S.Edit("Start at playhead", () => { double d = o.End - o.Start; o.Start = S.Playhead; o.End = S.Playhead + d; })),
+            Btn("Hit here", () => S.Edit("Danger at playhead", () => { double d = o.End - o.Start; o.Start = S.Playhead - o.Warn; o.End = o.Start + d; }), "Moves the object so it becomes dangerous exactly at the playhead."));
+    }
+
+    private void BuildParent(EditObject o)
+    {
         Section("Parent");
         var others = S.Doc.Objects.Where(x => x.Id != o.Id && !IsDescendant(x, o)).ToList();
         var ids = new[] { "", "@player", "@player2", "@player3", "@player4" }.Concat(others.Select(x => x.Id)).ToArray();
@@ -275,13 +321,116 @@ public partial class InspectorPanel : PanelContainer
             "A child moves and turns with its parent; its position becomes relative to it. Following a player keeps it next to that player (in the editor, next to the stand-in), and hides it when that player is not playing.");
         Row("Pivot X", Num(() => o.PivotX, v => o.PivotX = v, "Pivot", 0.05, -2, 2), "-0.5 is the left edge, 0 the center, 0.5 the right edge.");
         Row("Pivot Y", Num(() => o.PivotY, v => o.PivotY = v, "Pivot", 0.05, -2, 2), "-0.5 is the top edge.");
+    }
 
-        Buttons(Btn("Repeat…", () => ToolDialogs.ShowRepeat(App.Instance), "Add copies shifted in time, position, rotation or around a point."),
+    // ---------------- scripted objects ----------------
+
+    private static IEnumerable<ScriptType> AttackScripts => ScriptsService.I.All.Where(t => t.Kind == ScriptKind.Attack);
+
+    private void BuildScript(EditObject o)
+    {
+        var spec = o.Script;
+        var type = ScriptsService.I.FindInLevel(spec.Name);
+        Section("Script");
+        var names = AttackScripts.Select(t => t.Name).ToList();
+        if (!names.Contains(spec.Name, StringComparer.OrdinalIgnoreCase)) names.Insert(0, spec.Name);
+        var labels = names.Select(n => { var t = ScriptsService.I.Find(n); return t == null ? n + " (missing)" : $"{t.Title}  ·  {n}{(ScriptsService.I.IsInLevel(n) ? "" : "  (library)")}"; }).ToArray();
+        var picker = new OptionButton { ClipText = true, FitToLongestItem = false };
+        for (int i = 0; i < names.Count; i++) picker.AddItem(labels[i], i);
+        picker.Selected = Math.Max(0, names.FindIndex(n => string.Equals(n, spec.Name, StringComparison.OrdinalIgnoreCase)));
+        picker.ItemSelected += i =>
+        {
+            var name = names[(int)i];
+            if (!ScriptsService.I.EnsureInLevel(name, out var err)) { App.Instance.Status(err, true); Rebuild(); return; }
+            var nt = ScriptsService.I.FindInLevel(name);
+            S.Edit("Change script", () =>
+            {
+                spec.Name = name;
+                if (nt != null) foreach (var k in spec.Params.Keys.ToList()) if (!nt.Params.Any(p => p.Key == k)) spec.Params.Remove(k);
+            });
+        };
+        Row("Runs", picker, "The script this object runs. Library scripts are copied into the level's scripts folder when chosen.");
+
+        if (type == null)
+        {
+            box.AddChild(UiTheme.Small(ScriptsService.I.IsInLibrary(spec.Name)
+                ? $"'{spec.Name}' is in the library but not in this level yet."
+                : $"There is no script named '{spec.Name}' in this level's scripts folder.", UiTheme.Bad));
+            if (ScriptsService.I.IsInLibrary(spec.Name))
+                Buttons(Btn("Copy it into the level", () => { if (!ScriptsService.I.EnsureInLevel(spec.Name, out var e)) App.Instance.Status(e, true); }));
+            return;
+        }
+        if (!string.IsNullOrEmpty(type.Description)) box.AddChild(UiTheme.Small(type.Description));
+
+        var errors = UiTheme.Small("", UiTheme.Bad);
+        void UpdateErrors()
+        {
+            var list = new List<string>();
+            if (type.CompileError != null) list.Add(type.CompileError.ToString());
+            var host = S.Evaluator?.Scripts;
+            if (host != null)
+                foreach (var e in host.Errors)
+                    if (string.Equals(e.Script, spec.Name, StringComparison.OrdinalIgnoreCase) && !list.Contains(e.ToString())) list.Add(e.ToString());
+            errors.Text = string.Join("\n", list.Take(4));
+            errors.Visible = list.Count > 0;
+        }
+        UpdateErrors();
+        refreshers.Add(UpdateErrors);
+        box.AddChild(errors);
+
+        if (type.Params.Count > 0)
+        {
+            Section("Settings");
+            foreach (var p in type.Params) ScriptParamRow(spec, p);
+            Buttons(Btn("Reset settings", () => S.Edit("Reset script settings", () => spec.Params.Clear()), "Back to the script's defaults."));
+        }
+        Buttons(Btn("{ }  Edit code", () => ScriptEditorWindow.Open(spec.Name), "Open this script in the code editor."),
             Btn("Duplicate", () => App.Instance.DuplicateSelection()));
+    }
 
-        Section("Animation at the playhead");
-        box.AddChild(UiTheme.Small("Values at the playhead. Dragging on the stage or typing here writes a key at the playhead once a track has two or more keys; with one key the whole object changes. Hold R while the song plays to record a path with the mouse."));
-        foreach (var track in EditObject.TrackNames) BuildTrack(o, track);
+    private static double NumberOf(object v, double fallback) => v switch
+    {
+        double d => d,
+        int i => i,
+        float f => f,
+        bool b => b ? 1 : 0,
+        string s when double.TryParse(s, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d) => d,
+        _ => fallback,
+    };
+
+    private void ScriptParamRow(ScriptSpec spec, ScriptParam p)
+    {
+        object Get() => spec.Params.TryGetValue(p.Key, out var v) && v != null ? v : p.Default;
+        string label = string.IsNullOrEmpty(p.Label) ? p.Key : p.Label;
+        string undo = "Set " + label;
+        string tip = string.IsNullOrEmpty(p.Tooltip) ? null : p.Tooltip;
+        double min = p.Min <= -1e9 ? -100000 : p.Min, max = p.Max >= 1e9 ? 100000 : p.Max;
+        switch (p.Type)
+        {
+            case "bool":
+                Row(label, Check("", () => Get() is bool b ? b : NumberOf(Get(), 0) != 0, v => spec.Params[p.Key] = v, undo), tip, 132);
+                break;
+            case "text":
+                Row(label, Text(() => Get()?.ToString() ?? "", v => spec.Params[p.Key] = v, undo), tip, 132);
+                break;
+            case "color":
+                Row(label, ColorField(() => Get()?.ToString() ?? S.Doc.Hazard, v => spec.Params[p.Key] = v, undo, S.Doc.Hazard), tip, 132);
+                break;
+            case "choice" or "ease" or "shape":
+            {
+                var values = p.Type switch { "ease" => Eases, "shape" => Pattern.ShapeNames, _ => p.Options ?? Array.Empty<string>() };
+                if (values.Length == 0) { Row(label, Text(() => Get()?.ToString() ?? "", v => spec.Params[p.Key] = v, undo), tip, 132); break; }
+                Row(label, Options(values, () => Get()?.ToString() ?? values[0], v => spec.Params[p.Key] = v, undo), tip, 132);
+                break;
+            }
+            default:
+            {
+                double step = p.Type == "int" ? Math.Max(1, Math.Round(p.Step)) : p.Step > 0 ? p.Step : 0.01;
+                Row(label, Num(() => NumberOf(Get(), 0), v => spec.Params[p.Key] = p.Type == "int" ? Math.Round(v) : v, undo, step, min, max,
+                    p.Type == "beats" ? " beats" : ""), tip, 132);
+                break;
+            }
+        }
     }
 
     /// <summary>A [min, max] range that is off (null) while both ends are 0.</summary>

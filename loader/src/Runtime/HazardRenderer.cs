@@ -18,6 +18,8 @@ internal sealed class HazardRenderer
 
     private readonly DynamicMesh hazards;
     private readonly DynamicMesh overlay;
+    /// <summary>Script shapes drawn in front of the players (front: true).</summary>
+    private readonly DynamicMesh front;
     /// <summary>The strongest flash drawn this frame (0 to 1).</summary>
     public float FlashCover { get; private set; }
     private readonly DynamicMesh background;
@@ -33,7 +35,9 @@ internal sealed class HazardRenderer
         background = new DynamicMesh("Beatform Background", host);
         backdrop = new DynamicMesh("Beatform Backdrop", host);
         hazards = new DynamicMesh("Beatform Hazards", host);
-        overlay = new DynamicMesh("Beatform Overlay", host);
+        // Drawn after the game's own sprites, so they cover the players.
+        front = new DynamicMesh("Beatform Front", host, 3100);
+        overlay = new DynamicMesh("Beatform Overlay", host, 3101);
         SetVisible(false);
     }
 
@@ -43,6 +47,7 @@ internal sealed class HazardRenderer
         background.SetActive(v);
         backdrop.SetActive(v);
         hazards.SetActive(v);
+        front.SetActive(v);
         overlay.SetActive(v);
     }
 
@@ -64,10 +69,12 @@ internal sealed class HazardRenderer
 
         // Backdrop objects go in their own mesh far behind the players and the game's effects; the
         // rest just behind the players.
-        Fill(backdrop, true);
+        Fill(backdrop, Pass.Backdrop);
         backdrop.End(new Vector3(camX, camY, BackgroundZ - 1), zoom, camRot);
-        Fill(hazards, false);
+        Fill(hazards, Pass.Hazards);
         hazards.End(new Vector3(camX, camY, hazardZ), zoom, camRot);
+        Fill(front, Pass.Front);
+        front.End(new Vector3(camX, camY, overlayZ + 0.002f), zoom, camRot);
 
         ev.Flashes(t, flashes);
         FlashCover = 0;
@@ -81,18 +88,22 @@ internal sealed class HazardRenderer
         return items;
     }
 
-    private void Fill(DynamicMesh mesh, bool backdropItems)
+    private enum Pass { Backdrop, Hazards, Front }
+
+    private static Pass PassOf(in DrawItem it) => it.Front ? Pass.Front : LevelEvaluator.IsBackdrop(it) ? Pass.Backdrop : Pass.Hazards;
+
+    private void Fill(DynamicMesh mesh, Pass pass)
     {
         int vCount = 0, iCount = 0;
         foreach (var it in items)
         {
-            if (LevelEvaluator.IsBackdrop(it) != backdropItems) continue;
+            if (PassOf(it) != pass) continue;
             vCount += it.Geometry.Vertices.Length; iCount += it.Geometry.Indices.Length;
         }
         mesh.Begin(vCount, iCount);
         foreach (var it in items)
         {
-            if (LevelEvaluator.IsBackdrop(it) != backdropItems) continue;
+            if (PassOf(it) != pass) continue;
             var g = it.Geometry;
             var c = ToColor32(it.Color);
             int baseIndex = mesh.VertexCount;
@@ -116,6 +127,8 @@ internal sealed class HazardRenderer
         backdrop.End(Vector3.zero, 1);
         hazards.Begin(0, 0);
         hazards.End(Vector3.zero, 1);
+        front.Begin(0, 0);
+        front.End(Vector3.zero, 1);
         overlay.Begin(0, 0);
         overlay.End(Vector3.zero, 1);
     }
@@ -136,6 +149,7 @@ internal sealed class HazardRenderer
         background.Destroy();
         backdrop.Destroy();
         hazards.Destroy();
+        front.Destroy();
         overlay.Destroy();
     }
 
@@ -164,10 +178,13 @@ internal sealed class HazardRenderer
         private int indexCount;
         public int VertexCount { get; private set; }
 
-        public DynamicMesh(string name, Transform host)
+        private readonly int queue;
+
+        public DynamicMesh(string name, Transform host, int renderQueue = 3000)
         {
             this.name = name;
             this.host = host;
+            queue = renderQueue;
             EnsureAlive();
         }
 
@@ -183,7 +200,7 @@ internal sealed class HazardRenderer
             mesh.MarkDynamic();
             mf.mesh = mesh;
             var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Hidden/Internal-Colored");
-            var mat = new Material(shader) { renderQueue = 3000 };
+            var mat = new Material(shader) { renderQueue = queue };
             mr.material = mat;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mr.receiveShadows = false;

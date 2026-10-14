@@ -22,6 +22,7 @@ internal sealed class LevelLoader
         task = Task.Run(() =>
         {
             var data = LevelData.Parse(File.ReadAllText(Path.Combine(folder, "level.json")));
+            data.LoadScripts(folder);
             var pcm = AudioDecoder.Decode(Path.Combine(folder, data.Meta.Audio));
             Trim(pcm, data);
             return (data, pcm);

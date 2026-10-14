@@ -21,6 +21,20 @@ public struct DrawItem
     /// <summary>When set, collision uses <see cref="HitTransform"/> instead of the drawn transform.</summary>
     public bool HasHitTransform;
     public Affine HitTransform;
+    /// <summary>Draw order: higher layers on top. The object's layer, or what a script asked for.</summary>
+    public int Layer;
+    /// <summary>Can hurt players while active (the object's hitbox, or a script shape's hurts).</summary>
+    public bool Hits;
+    /// <summary>The object's own hitbox scale (times settings.hitboxScale).</summary>
+    public double HitScale;
+    /// <summary>Drawn in front of the players (script shapes with front: true); never hurts.</summary>
+    public bool Front;
+}
+
+/// <summary>The camera at a song time: turn (degrees), scale, and the shift applied after them.</summary>
+public struct CameraState
+{
+    public double Rotation, Scale, X, Y;
 }
 
 /// <summary>
@@ -37,7 +51,7 @@ public sealed class LevelEvaluator
     /// <summary>Decoration at or below this layer is backdrop: drawn behind the players and everything else.</summary>
     public const int BackdropLayer = -10;
 
-    public static bool IsBackdrop(in DrawItem it) => it.Object.Layer <= BackdropLayer && !it.Object.Hitbox;
+    public static bool IsBackdrop(in DrawItem it) => it.Layer <= BackdropLayer && !it.Hits && !it.Front;
 
     public readonly LevelData Level;
     private readonly List<int>[] bins;
@@ -96,6 +110,28 @@ public sealed class LevelEvaluator
     {
         get => seed;
         set { if (value == seed) return; seed = value; ApplySeed(); ResetImposters(); }
+    }
+
+    private ScriptHost scripts;
+    private bool scriptsMade;
+
+    /// <summary>
+    /// The level's scripts (null when it has no script objects). Made on first use, from
+    /// <see cref="LevelData.ScriptSources"/>.
+    /// </summary>
+    public ScriptHost Scripts
+    {
+        get
+        {
+            if (!scriptsMade)
+            {
+                scriptsMade = true;
+                bool any = false;
+                foreach (var o in Level.Objects) if (o.Script != null) { any = true; break; }
+                if (any) scripts = new ScriptHost(this, new ScriptLibrary(Level.ScriptSources));
+            }
+            return scripts;
+        }
     }
 
     private void ApplySeed()
@@ -209,16 +245,29 @@ public sealed class LevelEvaluator
     public void Collect(double t, List<DrawItem> output)
     {
         output.Clear();
+        Scripts?.Evaluate(t);
         int b = BinOf(t);
         if (b >= bins.Length || bins[b] == null) return;
         foreach (var i in bins[b])
         {
             var o = Level.Objects[i];
             if (o.Hidden) continue;
+            if (o.Script != null) { AddScriptDraws(o, t, output); continue; }
             var phase = PhaseAt(o, t);
             if (phase == Phase.Absent) continue;
             var color = ColorAt(o, t, phase);
-            if (o.Imposter != null) { AddImposter(o, t, phase, color, output); continue; }
+            if (o.Imposter != null)
+            {
+                int from = output.Count;
+                AddImposter(o, t, phase, color, output);
+                for (int k = from; k < output.Count; k++)
+                {
+                    var it = output[k];
+                    it.Layer = o.Layer; it.Hits = o.Hitbox; it.HitScale = o.HitboxScale;
+                    output[k] = it;
+                }
+                continue;
+            }
             if (color.A <= 0.001f && !(phase == Phase.Active && o.Hitbox)) continue;
             if (!TryWorldTransform(o, t, out var m)) continue;
             output.Add(new DrawItem
@@ -228,9 +277,12 @@ public sealed class LevelEvaluator
                 Transform = m,
                 Color = color,
                 Phase = phase,
+                Layer = o.Layer,
+                Hits = o.Hitbox,
+                HitScale = o.HitboxScale,
             });
         }
-        output.Sort((a, c) => a.Object.Layer != c.Object.Layer ? a.Object.Layer.CompareTo(c.Object.Layer)
+        output.Sort((a, c) => a.Layer != c.Layer ? a.Layer.CompareTo(c.Layer)
             : a.Object.FileIndex != c.Object.FileIndex ? a.Object.FileIndex.CompareTo(c.Object.FileIndex) : a.Order.CompareTo(c.Order));
     }
 
@@ -330,7 +382,45 @@ public sealed class LevelEvaluator
     }
 
     /// <summary>Forgets every imposter run, so they start over (for example after the players change).</summary>
-    public void ResetImposters() => sims.Clear();
+    public void ResetImposters()
+    {
+        sims.Clear();
+        scripts?.Reset();
+    }
+
+    /// <summary>Where a script object spawns at time t: its position (through its parents) and turn.</summary>
+    internal (double X, double Y, double Rot) ScriptOrigin(LevelObject o, double t)
+    {
+        double rot = o.Rot.Evaluate(t - o.Start) + o.OffRot;
+        if (!TryWorldTransform(o, t, out var m)) return (o.X.Evaluate(t - o.Start) + o.OffX, o.Y.Evaluate(t - o.Start) + o.OffY, rot);
+        return (m.Tx, m.Ty, rot);
+    }
+
+    /// <summary>Sounds, hits and teleports scripts made at song times in (from, to].</summary>
+    public void ScriptSignals(double from, double to, List<ScriptSignal> output)
+    {
+        output.Clear();
+        Scripts?.SignalsBetween(from, to, output);
+    }
+
+    private void AddScriptDraws(LevelObject o, double t, List<DrawItem> output)
+    {
+        var list = scripts?.DrawsOf(o);
+        if (list == null) return;
+        float pulse = (float)(0.25 + 0.1 * Math.Sin(2 * Math.PI * t / WarningPulseMs));
+        foreach (var d in list)
+        {
+            var c = d.Color;
+            if (d.Warning) c.A *= pulse;
+            if (c.A <= 0.001f && !d.Hurts) continue;
+            output.Add(new DrawItem
+            {
+                Object = o, Geometry = d.Geometry, Transform = d.Transform, Color = c,
+                Phase = d.Warning ? Phase.Warning : Phase.Active, Order = d.Order, Harmless = !d.Hurts,
+                Layer = d.Layer, Hits = d.Hurts, HitScale = 1, Front = d.Front,
+            });
+        }
+    }
 
     /// <summary>The imposter's simulation advanced to song time t (clamped to its lifetime).</summary>
     public ImposterSim SimAt(LevelObject o, double t)
@@ -421,8 +511,8 @@ public sealed class LevelEvaluator
         hitItem = default;
         foreach (var it in items)
         {
-            if (it.Phase != Phase.Active || !it.Object.Hitbox || it.Harmless) continue;
-            double s = Level.HitboxScale * it.Object.HitboxScale;
+            if (it.Phase != Phase.Active || !it.Hits || it.Harmless) continue;
+            double s = Level.HitboxScale * it.HitScale;
             if (s <= 0) continue;
             var g = it.Geometry;
             // Broad phase: the shape lies within the unit square's circumcircle around its center.
@@ -475,7 +565,12 @@ public sealed class LevelEvaluator
     /// How fast the players move at time t, as a part of their normal speed: 1 before the first
     /// playerSpeed event; each one blends from the previous value to its own over its duration.
     /// </summary>
-    public double PlayerSpeedAt(double t) => SpeedEventValue(t, e => e.Speed);
+    public double PlayerSpeedAt(double t)
+    {
+        double v = SpeedEventValue(t, e => e.Speed);
+        if (Scripts != null) { scripts.Evaluate(t); v = Math.Min(v, scripts.Frame.PlayerSpeed); }
+        return v;
+    }
 
     /// <summary>
     /// The camera zoom at time t: how much bigger everything is drawn and the point (level units from
@@ -502,7 +597,41 @@ public sealed class LevelEvaluator
     }
 
     /// <summary>How quickly the players turn at time t (from playerSpeed events, blended the same way).</summary>
-    public double PlayerTurnAt(double t) => SpeedEventValue(t, e => e.Turn);
+    public double PlayerTurnAt(double t)
+    {
+        double v = SpeedEventValue(t, e => e.Turn);
+        if (Scripts != null) { scripts.Evaluate(t); v = Math.Min(v, scripts.Frame.PlayerTurn); }
+        return v;
+    }
+
+    /// <summary>
+    /// The whole camera at time t: sway, zoom events and what scripts ask for, as the turn and scale
+    /// around the screen centre and the shift applied after them.
+    /// </summary>
+    public CameraState CameraAt(double t)
+    {
+        var (rot, x, y) = SwayAt(t);
+        var (s1, f1x, f1y) = ZoomAt(t);
+        double s2 = 1, f2x = 0, f2y = 0;
+        if (Scripts != null)
+        {
+            scripts.Evaluate(t);
+            var f = scripts.Frame;
+            rot += f.CamRot;
+            x += f.CamX;
+            y += f.CamY;
+            s2 = f.Zoom;
+            if (f.ZoomFocus) { f2x = f.ZoomX; f2y = f.ZoomY; }
+        }
+        // Zoom on F1 by s1, then on F2 by s2: P -> s1·s2·P + s2·F1·(1 − s1) + F2·(1 − s2).
+        return new CameraState
+        {
+            Rotation = rot,
+            Scale = s1 * s2,
+            X = x + s2 * f1x * (1 - s1) + f2x * (1 - s2),
+            Y = y + s2 * f1y * (1 - s1) + f2y * (1 - s2),
+        };
+    }
 
     private double SpeedEventValue(double t, Func<LevelEvent, double> value)
     {
@@ -516,6 +645,7 @@ public sealed class LevelEvaluator
 
     public Rgba BackgroundAt(double t)
     {
+        if (Scripts != null) { scripts.Evaluate(t); if (scripts.Frame.Background is Rgba sb) return sb; }
         int i = LastEventAtOrBefore(backgroundEvents, t);
         if (i < 0) return Level.Background;
         return BackgroundTransition(backgroundStartColors[i], backgroundEvents[i], t);
@@ -539,6 +669,11 @@ public sealed class LevelEvaluator
             double fade = t < e.T + e.Hold ? 0 : (t - e.T - e.Hold) / e.Duration;
             c.A = (float)(c.A * e.Opacity * (1 - fade));
             output.Add(c);
+        }
+        if (Scripts != null)
+        {
+            scripts.Evaluate(t);
+            output.AddRange(scripts.Frame.Flashes);
         }
     }
 

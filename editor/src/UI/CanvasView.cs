@@ -154,12 +154,10 @@ public partial class CanvasView : Control
         triPoints.Clear();
         triColors.Clear();
         triIndices.Clear();
-        // While the song plays, show the level's camera sway and zoom like the game does (editing stays steady).
-        var sway = S.Playing ? S.Evaluator.SwayAt(S.Playhead) : (0, 0, 0);
-        var zoom = S.Playing ? S.Evaluator.ZoomAt(S.Playhead) : (1, 0, 0);
-        var cam = new Affine { A = zoom.Item1, D = zoom.Item1, Tx = zoom.Item2 * (1 - zoom.Item1), Ty = zoom.Item3 * (1 - zoom.Item1) }
-            .Then(Affine.RotateTranslate(sway.Item1, sway.Item2, sway.Item3));
-        bool still = sway.Item1 == 0 && sway.Item2 == 0 && sway.Item3 == 0 && zoom.Item1 == 1;
+        // While the song plays, show the level's camera (sway, zoom, scripts) like the game does (editing stays steady).
+        var c0 = S.Playing ? S.Evaluator.CameraAt(S.Playhead) : new CameraState { Scale = 1 };
+        var cam = new Affine { A = c0.Scale, D = c0.Scale }.Then(Affine.RotateTranslate(c0.Rotation, c0.X, c0.Y));
+        bool still = c0.Rotation == 0 && c0.X == 0 && c0.Y == 0 && c0.Scale == 1;
         foreach (var it in items)
         {
             var c = new Color(it.Color.R, it.Color.G, it.Color.B, it.Color.A);
@@ -200,6 +198,7 @@ public partial class CanvasView : Control
             if (lo == null) continue;
             var m = SelectionTransform(lo, t);
             bool present = LevelEvaluator.PhaseAt(lo, t) != Phase.Absent;
+            if (lo.Script != null) { DrawScriptOrigin(lo, m, t, present); continue; }
             var geo = ShapeGeometry.For(lo.Shape);
             var pts = geo.Outline.Select(u => GameToView(m.Apply(u))).ToList();
             pts.Add(pts[0]);
@@ -225,6 +224,23 @@ public partial class CanvasView : Control
     }
 
     private static readonly Vector2[] Corners = { new(-0.5f, -0.5f), new(0.5f, -0.5f), new(0.5f, 0.5f), new(-0.5f, 0.5f) };
+
+    /// <summary>A scripted object is shown by where it spawns (this.x, this.y), its heading and its path.</summary>
+    private void DrawScriptOrigin(LevelObject lo, Affine m, double t, bool present)
+    {
+        var col = present ? UiTheme.Gold : new Color(UiTheme.Gold, 0.4f);
+        var c = GameToView(m.Apply(0, 0));
+        DrawArc(c, 9, 0, Mathf.Tau, 24, col, 1.5f);
+        DrawLine(c - new Vector2(14, 0), c + new Vector2(14, 0), col, 1);
+        DrawLine(c - new Vector2(0, 14), c + new Vector2(0, 14), col, 1);
+        double rot = lo.Rot.Evaluate(t - lo.Start) * Math.PI / 180;
+        DrawLine(c, c + new Vector2((float)Math.Cos(rot), (float)Math.Sin(rot)) * 22, col, 2);
+        DrawString(GetThemeDefaultFont(), c + new Vector2(12, -10), "{ } " + lo.Script.Name, HorizontalAlignment.Left, -1, 11, col);
+        var path = new List<Vector2>();
+        for (double pt = lo.Start; pt <= lo.End; pt += Math.Max(16, (lo.End - lo.Start) / 120))
+            path.Add(GameToView(SelectionTransform(lo, pt).Apply(0, 0)));
+        if (path.Count > 1) DrawPolyline(path.ToArray(), new Color(UiTheme.Gold, 0.3f), 1, true);
+    }
 
     private Vector2 RotateHandle(Affine m, LevelObject lo)
     {
@@ -301,7 +317,7 @@ public partial class CanvasView : Control
         // Handles of the single selected object come first.
         var primary = S.Primary;
         var lp = primary != null ? Live(primary) : null;
-        if (lp != null)
+        if (lp != null && lp.Script == null)
         {
             var m = SelectionTransform(lp, t);
             if (RotateHandle(m, lp).DistanceTo(mb.Position) < 9) { StartTransform(DragMode.Rotate); return; }
@@ -462,6 +478,10 @@ public partial class CanvasView : Control
             }
             if (GameToView(it.Transform.Apply(0, 0)).DistanceTo(view) < 7) return it.Object.Id;
         }
+        // Scripted objects can also be grabbed by their spawn point, even when they draw nothing there.
+        foreach (var lo in S.Evaluator.Level.Objects)
+            if (lo.Script != null && LevelEvaluator.PhaseAt(lo, S.Playhead) != Phase.Absent
+                && GameToView(SelectionTransform(lo, S.Playhead).Apply(0, 0)).DistanceTo(view) < 11) return lo.Id;
         return null;
     }
 

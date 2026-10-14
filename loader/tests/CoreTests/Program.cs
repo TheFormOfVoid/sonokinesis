@@ -29,6 +29,8 @@ internal static class Program
         var level = LevelData.Parse(File.ReadAllText(Path.Combine(repo, "spec", "examples", "vectors", "level.json")));
         LevelTests(level);
         ImposterTests();
+        ScriptTests.Run(Check, Near);
+        ScriptTests.Library(Check);
         WriteVectors(level, Path.Combine(repo, "spec", "test-vectors.json"));
         Console.WriteLine(failures == 0 ? "all core tests passed" : $"{failures} failures");
         return failures == 0 ? 0 : 1;

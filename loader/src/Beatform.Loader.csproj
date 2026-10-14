@@ -47,12 +47,13 @@
   <ItemGroup>
     <PackageReference Include="NLayer" Version="1.16.0" />
     <PackageReference Include="NVorbis" Version="0.10.5" />
+    <PackageReference Include="Jint" Version="4.17.0" />
   </ItemGroup>
 
   <!-- Copy the built plugin straight into the local game install for testing. -->
   <Target Name="DeployToGame" AfterTargets="Build" Condition="'$(Deploy)' == 'true'">
     <MakeDir Directories="$(GameDir)\BepInEx\plugins\Beatform" />
-    <Copy SourceFiles="$(TargetPath);$(TargetDir)NVorbis.dll;$(TargetDir)NLayer.dll" DestinationFolder="$(GameDir)\BepInEx\plugins\Beatform" />
+    <Copy SourceFiles="$(TargetPath);$(TargetDir)NVorbis.dll;$(TargetDir)NLayer.dll;$(TargetDir)Jint.dll;$(TargetDir)Acornima.dll" DestinationFolder="$(GameDir)\BepInEx\plugins\Beatform" />
   </Target>
 
 </Project>

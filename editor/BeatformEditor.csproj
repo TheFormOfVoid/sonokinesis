@@ -14,5 +14,6 @@
   <ItemGroup>
     <PackageReference Include="NVorbis" Version="0.10.5" />
     <PackageReference Include="NLayer" Version="1.16.0" />
+    <PackageReference Include="Jint" Version="4.17.0" />
   </ItemGroup>
 </Project>
