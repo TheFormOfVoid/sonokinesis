@@ -129,6 +129,7 @@ From the library (see `list_scripts` for every setting):
 | `homing_orb` chases, then bursts into shards | `zoom_pulse` zoom punch every beat | `shockwave` an expanding ring |
 | `laser_sweep` a beam that pivots | `custom_sway` rocking camera | `wall` a sweeping wall with a gap |
 | `bouncing_balls` gravity balls | `screen_shake` | `laser` warning line, then beam |
+| | `beat_bump` camera dips on a beat pattern | |
 | `shard` a flying triangle | `beat_flash` a flash every beat | `spinner` arms around a hub |
 | | `vhs_rewind` tape-rewind look, players frozen | `spiral`, `rain`, `bouncer`, `pulse` |
 

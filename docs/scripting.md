@@ -433,8 +433,8 @@ function draw() {
 ```
 
 Look in `library/` for more: `bullet_ring`, `homing_orb` + `shard`, `laser_sweep`,
-`bouncing_balls`, and the effects `camera_kick`, `zoom_pulse`, `custom_sway`, `screen_shake`,
-`beat_flash`, `vhs_rewind`.
+`bouncing_balls`, and the effects `beat_bump`, `camera_kick`, `zoom_pulse`, `custom_sway`,
+`screen_shake`, `beat_flash`, `vhs_rewind`.
 
 ## Reference card
 
