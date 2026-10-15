@@ -344,6 +344,7 @@ public sealed class LevelFolder
                         else if (ids.Contains(id)) throw new CliError($"an object with id '{id}' already exists");
                         ids.Add(id);
                         if (c["shape"] == null) c["shape"] = new JsonObject { ["type"] = "rect" };
+                        FitText(c);
                         Objects.Add(c);
                         added.Add(id);
                     }
@@ -437,6 +438,28 @@ public sealed class LevelFolder
         result["eventsAdded"] = eventsAdded;
         result["eventsRemoved"] = eventsRemoved;
         return result;
+    }
+
+    /// <summary>
+    /// A text object without a width gets the width its letters need at its height, so they are not
+    /// stretched (what the editor does when text is typed).
+    /// </summary>
+    private static void FitText(JsonObject o)
+    {
+        if ((string)o["shape"]?["type"] != "text") return;
+        var tracks = o["tracks"] as JsonObject ?? (JsonObject)(o["tracks"] = new JsonObject());
+        if (tracks["w"] != null) return;
+        string text = (string)o["shape"]["text"] ?? "";
+        bool bold = o["shape"]["bold"]?.GetValue<bool>() ?? true;
+        double factor = TextFont.Width(text, bold);
+        var keys = new JsonArray();
+        if (tracks["h"] is JsonArray hk && hk.Count > 0)
+        {
+            foreach (var k in hk.OfType<JsonArray>())
+                keys.Add(new JsonArray(k[0]?.DeepClone(), Math.Round(Num(k[1], 100) * factor, 2)));
+        }
+        else keys.Add(new JsonArray(0, Math.Round(100 * factor, 2)));
+        tracks["w"] = keys;
     }
 
     /// <summary>Objects an operation names: "id", "ids", "group", or "from"/"to" (start times).</summary>

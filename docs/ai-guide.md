@@ -113,12 +113,12 @@ A chaser that dashes on the beat and leaves after 8 beats:
   "tracks": { "x": [[0, 700]], "y": [[0, 0]], "w": [[0, 40]], "h": [[0, 40]] } }
 ```
 
-Text (decoration, the box height is the capital height, width = height × the text's width factor;
-the editor and `add_pattern` compute it, by hand use about 0.7 × height per letter):
+Text (decoration; `h` is the capital-letter height; leave out `w` and `edit_level` gives it the width
+the letters need):
 
 ```json
 { "name": "title", "shape": { "type": "text", "text": "READY?" }, "hitbox": false, "start": 0, "end": 2000, "outro": 300,
-  "color": "#ffffff", "tracks": { "x": [[0, 0]], "y": [[0, 0]], "w": [[0, 260]], "h": [[0, 60]] } }
+  "color": "#ffffff", "tracks": { "x": [[0, 0]], "y": [[0, 0]], "h": [[0, 60]] } }
 ```
 
 From the library (see `list_scripts` for every setting):

@@ -102,7 +102,7 @@ sit half a beat off the grid, use `offsetIfOffBeat`.
 
 | op | fields | effect |
 |---|---|---|
-| `add` | `objects: [...]` (or `object: {...}`) | add objects; missing ids are generated (`o12`); a missing shape becomes a rect |
+| `add` | `objects: [...]` (or `object: {...}`) | add objects; missing ids are generated (`o12`); a missing shape becomes a rect; text without a `w` track gets the width its letters need at its height |
 | `update` | selector, `set: {...}` | replace those fields of each selected object; a `null` value removes the field |
 | `shift` | selector, `by: ms` | move objects in time (start and end) |
 | `remove` | selector | delete objects |
