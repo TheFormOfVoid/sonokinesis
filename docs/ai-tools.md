@@ -3,8 +3,9 @@
 `beatform` makes and checks levels without the editor's window. It uses the same level, script and
 audio code as the game loader and the editor, so what it validates and draws is what the game plays.
 Every command is also an **MCP tool**: run `beatform mcp` and an AI client (Claude Code, Claude
-Desktop, or any MCP client) can build levels with it. The companion repository **beatform-ai** has
-ready-made setup and instructions for AI agents.
+Desktop, or any MCP client) can build levels with it. The companion repository
+[beatform-ai](https://github.com/TheFormOfVoid/beatform-ai) has ready-made setup and instructions for
+AI agents.
 
 - [Getting it](#getting-it)
 - [Using it from an AI client (MCP)](#mcp)

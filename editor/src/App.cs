@@ -550,6 +550,9 @@ public partial class App : Control
 
     private bool ConfirmDiscard(Action then)
     {
+        // Unsaved script edits in the code editor are asked about too.
+        var next = then;
+        then = () => UI.ScriptEditorWindow.ConfirmQuit(next);
         if (!S.Dirty) { then(); return true; }
         var dlg = new ConfirmationDialog { Title = "Unsaved changes", DialogText = "The level has unsaved changes. Save them first?", OkButtonText = "Save" };
         dlg.AddButton("Don't save", true, "discard");
@@ -809,7 +812,7 @@ public partial class App : Control
         if (what == NotificationWMCloseRequest)
         {
             if (autotest != null) { GetTree().Quit(); return; }
-            ConfirmDiscard(() => UI.ScriptEditorWindow.ConfirmQuit(() => GetTree().Quit()));
+            ConfirmDiscard(() => GetTree().Quit());
         }
     }
 }

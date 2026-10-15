@@ -336,7 +336,19 @@ public partial class ScriptEditorWindow : Window
         RefreshPicker();
         if (current == null) return;
         var path = ScriptsService.I.PathOf(current);
-        if (path == null) { info.Text = $"{current}.js no longer exists."; return; }
+        if (path == null)
+        {
+            if (dirty) { info.Text = $"{current}.js no longer exists: your edits are only in this window."; return; }
+            // Deleted, or another level was opened: nothing to show.
+            current = null;
+            loadedText = "";
+            code.Text = "";
+            code.Editable = false;
+            liveError = null;
+            consoleSignature = "";
+            UpdateButtons();
+            return;
+        }
         string disk;
         try { disk = File.ReadAllText(path); } catch { return; }
         if (disk == loadedText) { UpdateButtons(); return; }

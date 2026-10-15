@@ -54,7 +54,8 @@ song (with tempo and beat detection), edit it, write and test scripts, validate 
 render frames to PNG, play it in the game and drive the editor. `beatform mcp` serves all of it as MCP
 tools, with renders returned as images, so an AI client such as Claude Code can build a level end to
 end and look at its work. See [docs/ai-tools.md](docs/ai-tools.md) and [docs/ai-guide.md](docs/ai-guide.md);
-the companion repository **beatform-ai** has ready-made instructions and setup for agents.
+the companion repository [beatform-ai](https://github.com/TheFormOfVoid/beatform-ai) has ready-made
+instructions, setup and an example level for agents.
 
 ## Documentation
 
