@@ -30,7 +30,7 @@ internal static class Program
         LevelTests(level);
         ImposterTests();
         ScriptTests.Run(Check, Near);
-        ScriptTests.Library(Check);
+        ScriptTests.Library(Check, repo);
         WriteVectors(level, Path.Combine(repo, "spec", "test-vectors.json"));
         Console.WriteLine(failures == 0 ? "all core tests passed" : $"{failures} failures");
         return failures == 0 ? 0 : 1;

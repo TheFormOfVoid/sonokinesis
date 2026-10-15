@@ -175,10 +175,10 @@ function build(p) {
     }
 
     /// <summary>Every script in library/ compiles; attacks and effects run for a few seconds, patterns build.</summary>
-    public static void Library(Action<bool, string> check)
+    public static void Library(Action<bool, string> check, string repo)
     {
-        var dir = System.IO.Path.Combine(Environment.CurrentDirectory, "library");
-        if (!System.IO.Directory.Exists(dir)) { check(false, "library/ not found (run from the repo root)"); return; }
+        var dir = System.IO.Path.Combine(repo, "library");
+        if (!System.IO.Directory.Exists(dir)) { check(false, $"library/ not found in {repo} (run from the repo root or pass it)"); return; }
         var sources = new Dictionary<string, string>();
         foreach (var f in System.IO.Directory.GetFiles(dir, "*.js", System.IO.SearchOption.AllDirectories))
             sources[System.IO.Path.GetFileNameWithoutExtension(f)] = System.IO.File.ReadAllText(f);
