@@ -1,9 +1,6 @@
-# Research output derived from the game's binaries stays local, never committed or shared.
-research/rea/
-research/game-api/
-research/dumps/
-research/tools/*/bin/
-research/tools/*/obj/
+# Research (notes, game API dumps, reference recordings, test levels) stays local: it is derived
+# from the game or belongs to other people, and is never committed or shared.
+research/
 
 # Build output
 loader/src/bin/
