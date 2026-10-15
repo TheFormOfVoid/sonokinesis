@@ -98,6 +98,26 @@ public static class UiTheme
         return l;
     }
 
+    /// <summary>
+    /// Shows a dialog sized to its content. Wrapping labels only know their height after a layout pass,
+    /// so the dialog is shrunk to fit once that has happened.
+    /// </summary>
+    public static void PopupFitted(Window dlg)
+    {
+        dlg.ResetSize();
+        dlg.PopupCentered();
+        void Fit()
+        {
+            if (!GodotObject.IsInstanceValid(dlg) || !dlg.Visible) return;
+            dlg.Size = new Vector2I(dlg.Size.X, 1);
+            dlg.ResetSize();
+            dlg.MoveToCenter();
+        }
+        var tree = dlg.GetTree();
+        tree.CreateTimer(0).Timeout += Fit;
+        tree.CreateTimer(0.05).Timeout += Fit;
+    }
+
     public static Color ParseHex(string hex, Color fallback)
     {
         if (string.IsNullOrEmpty(hex) || hex[0] != '#') return fallback;

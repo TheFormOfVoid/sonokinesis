@@ -180,6 +180,13 @@ public sealed class ScriptsService
         return libraryPaths.TryGetValue(name, out var lp) ? lp : null;
     }
 
+    /// <summary>An attack that is listed as an effect: from library/effects, or with an effects category.</summary>
+    public bool IsEffect(ScriptType t) => t.Kind == ScriptKind.Attack
+        && (LibraryCategory(t.Name) == "effects" || (t.Category ?? "") is "Camera" or "Screen" or "Effects");
+
+    /// <summary>"attack", "effect" or "pattern".</summary>
+    public string KindName(ScriptType t) => t.Kind == ScriptKind.Pattern ? "pattern" : IsEffect(t) ? "effect" : "attack";
+
     /// <summary>The library folder a script comes from ("attacks", "effects", "patterns"), or "".</summary>
     public string LibraryCategory(string name) => libraryCategoryDirs.TryGetValue(name, out var c) ? c : "";
 

@@ -209,7 +209,7 @@ public static class Commands
                 return r;
             });
 
-        Add("editor", "Send a command to the running Beatform Editor: ping, state, open {folder}, reload {force}, save, seek {ms}, play {ms}, stop, select {ids}.",
+        Add("editor", "Send a command to the running Beatform Editor: ping, state, open {folder}, reload {force}, save, seek {ms}, play {ms}, stop, select {ids}, quit {force}.",
             new[] { "command" }, Props(("command", "string", "Editor command."), ("args", "object", "Its arguments, e.g. {\"folder\": \"...\"}.")),
             a =>
             {

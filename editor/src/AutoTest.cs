@@ -11,7 +11,7 @@ namespace Beatform.Editor;
 /// without clicking: `godot --path editor -- --autotest script.txt`.
 /// Commands: open DIR · at MS · select IDS|all|none|group:G · shot FILE · wait FRAMES · play · stop ·
 /// key NAME · palette ITEM X Y · save · undo · quit · code NAME · codeshot FILE · codeset FILE · codesave ·
-/// newscript NAME KIND · param KEY VALUE · report
+/// newscript NAME KIND · param KEY VALUE · place NAME · report
 /// </summary>
 public sealed class AutoTest
 {
@@ -60,6 +60,13 @@ public sealed class AutoTest
                     wait = 2;
                     break;
                 case "settings": app.ShowLevelSettings(); wait = 5; break;
+                case "repeat": UI.ToolDialogs.ShowRepeat(app); wait = 5; break;
+                case "stretch": UI.ToolDialogs.ShowStretch(app); wait = 5; break;
+                case "newscriptdialog": UI.ScriptEditorWindow.ShowNew(app); wait = 5; break;
+                case "closedialogs":
+                    foreach (var w in app.FindChildren("*", "AcceptDialog", true, false)) ((Window)w).Hide();
+                    wait = 3;
+                    break;
                 case "new":
                 {
                     // new <song file> | <level folder>
@@ -70,6 +77,7 @@ public sealed class AutoTest
                 }
                 case "bpm": s.Edit("BPM", () => s.Doc.Bpm = double.Parse(arg, System.Globalization.CultureInfo.InvariantCulture)); break;
                 case "testingame": app.TestInGameNow(); wait = 5; break;
+                case "place": app.Palette.Place(arg); wait = 10; break;
                 case "code": UI.ScriptEditorWindow.Open(arg.Length > 0 ? arg : null); wait = 15; break;
                 case "codeshot":
                 {
@@ -109,10 +117,13 @@ public sealed class AutoTest
                         foreach (var e in host.Errors) GD.Print("autotest: script error " + e);
                         foreach (var l in host.Logs.TakeLast(20)) GD.Print("autotest: log " + l);
                     }
+                    if (s.Primary?.Script is { } sc)
+                        GD.Print($"autotest: selected script {sc.Name} params {{{string.Join(", ", sc.Params.Select(kv => kv.Key + "=" + kv.Value))}}}");
                     GD.Print($"autotest: objects {s.Doc.Objects.Count}, scripts in level: {string.Join(", ", Scripts.ScriptsService.I.LevelSources.Keys)}, selected {string.Join(",", s.Selected)}, status '{app.LastStatus}'");
                     break;
                 }
                 case "save": app.Save(); break;
+                case "export": app.ExportZipTo(arg); break;
                 case "undo": s.Undo(); wait = 2; break;
                 case "quit": app.GetTree().Quit(); break;
                 case "size":

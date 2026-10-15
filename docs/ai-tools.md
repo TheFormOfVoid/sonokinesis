@@ -155,6 +155,7 @@ in `result.json`. `beatform editor <command>` does the round trip:
 | `play` / `stop` | `ms` (play) | preview with the song |
 | `select` | `ids` | select objects |
 | `shot` | `path`, `ms` | screenshot (what `editor-screenshot` uses) |
+| `quit` | `force` | close the editor (refuses with unsaved edits unless `force: true`) |
 
 Every answer includes the state. The editor also reloads by itself when `level.json` or a script
 changes on disk and it has no unsaved edits, so you can edit files with any tool and watch the editor

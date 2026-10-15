@@ -86,8 +86,7 @@ public partial class PalettePanel : PanelContainer
             }
         }
 
-        bool IsEffect(ScriptType t) => t.Kind == ScriptKind.Attack && (ScriptsService.I.LibraryCategory(t.Name) == "effects"
-            || (t.Category ?? "") is "Camera" or "Screen" or "Effects");
+        bool IsEffect(ScriptType t) => ScriptsService.I.IsEffect(t);
         Section("Attacks", all.Where(t => t.Kind == ScriptKind.Attack && !IsEffect(t)), "script:", "⚡",
             " Runs live in the game. Click to add at the playhead, or drag onto the stage.");
         Section("Effects", all.Where(IsEffect), "script:", "✺",
@@ -330,8 +329,9 @@ public static class PatternDialog
 
     public static void Show(Node parent, Pattern p, Action onAdd)
     {
-        var dlg = new ConfirmationDialog { Title = p.Name, OkButtonText = "Add at playhead", MinSize = new Vector2I(420, 0) };
-        var box = new VBoxContainer();
+        var dlg = new ConfirmationDialog { Title = p.Name, OkButtonText = "Add at playhead" };
+        // A fixed width, so the wrapping texts know their height (otherwise the dialog fills the screen).
+        var box = new VBoxContainer { CustomMinimumSize = new Vector2(460, 0) };
         box.AddThemeConstantOverride("separation", 6);
         box.AddChild(UiTheme.Small(p.Description, UiTheme.Text));
         foreach (var param in p.Params)
@@ -347,6 +347,6 @@ public static class PatternDialog
         dlg.Confirmed += () => { onAdd(); dlg.QueueFree(); };
         dlg.Canceled += () => dlg.QueueFree();
         parent.AddChild(dlg);
-        dlg.PopupCentered();
+        UiTheme.PopupFitted(dlg);
     }
 }

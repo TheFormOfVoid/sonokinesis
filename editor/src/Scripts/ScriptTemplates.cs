@@ -71,6 +71,7 @@ function draw() {{
 meta = {{
   name: '{name}',
   description: 'Tilts the camera back and forth on the beat.',
+  category: 'Camera',     // 'Camera', 'Screen' or 'Effects' list it under Effects in the palette
   length: 8,
   params: {{
     tilt: {{ type: 'number', label: 'Tilt (°)', default: 3, min: 0, max: 45, step: 0.5 }},

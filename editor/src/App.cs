@@ -718,23 +718,24 @@ public partial class App : Control
         fd.FileSelected += path =>
         {
             fd.QueueFree();
-            try
-            {
-                if (File.Exists(path)) File.Delete(path);
-                using var zip = System.IO.Compression.ZipFile.Open(path, System.IO.Compression.ZipArchiveMode.Create);
-                foreach (var f in Directory.GetFiles(S.Doc.FolderPath))
-                {
-                    var ext = Path.GetExtension(f).ToLowerInvariant();
-                    if (ext is ".bak" or ".tmp") continue;
-                    System.IO.Compression.ZipFileExtensions.CreateEntryFromFile(zip, f, Path.GetFileName(f));
-                }
-                Status("Exported " + path);
-            }
-            catch (Exception e) { Status("Export failed: " + e.Message, true); }
+            ExportZipTo(path);
         };
         fd.Canceled += () => fd.QueueFree();
         AddChild(fd);
         fd.PopupCentered(new Vector2I(900, 600));
+    }
+
+    public void ExportZipTo(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+            using var zip = System.IO.Compression.ZipFile.Open(path, System.IO.Compression.ZipArchiveMode.Create);
+            foreach (var (f, rel) in LevelFiles(S.Doc.FolderPath))
+                System.IO.Compression.ZipFileExtensions.CreateEntryFromFile(zip, f, rel);
+            Status("Exported " + path);
+        }
+        catch (Exception e) { Status("Export failed: " + e.Message, true); }
     }
 
     private void InstallToGame()
@@ -746,15 +747,40 @@ public partial class App : Control
         try
         {
             Directory.CreateDirectory(dest);
-            foreach (var f in Directory.GetFiles(S.Doc.FolderPath))
+            var files = LevelFiles(S.Doc.FolderPath).ToList();
+            foreach (var (f, rel) in files)
             {
-                var ext = Path.GetExtension(f).ToLowerInvariant();
-                if (ext is ".bak" or ".tmp") continue;
-                File.Copy(f, Path.Combine(dest, Path.GetFileName(f)), true);
+                var to = Path.Combine(dest, rel.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(to));
+                File.Copy(f, to, true);
             }
+            // Scripts removed from the level must not linger in the installed copy.
+            var scripts = Path.Combine(dest, "scripts");
+            if (Directory.Exists(scripts))
+                foreach (var old in Directory.GetFiles(scripts, "*.js"))
+                    if (!files.Any(x => x.Rel == "scripts/" + Path.GetFileName(old))) File.Delete(old);
             Status("Copied to " + dest + ". It shows up in the game's custom level list (F1 on the main menu).");
         }
         catch (Exception e) { Status("Copy failed: " + e.Message, true); }
+    }
+
+    /// <summary>
+    /// The files that make up a level (what is shared or installed): the files in its folder, except
+    /// backups and the autosave, and its scripts. Paths relative to the folder use '/'.
+    /// </summary>
+    public static IEnumerable<(string Full, string Rel)> LevelFiles(string folder)
+    {
+        foreach (var f in Directory.GetFiles(folder))
+        {
+            var name = Path.GetFileName(f);
+            var ext = Path.GetExtension(f).ToLowerInvariant();
+            if (ext is ".bak" or ".tmp" || name.Equals(AutosaveName, StringComparison.OrdinalIgnoreCase)) continue;
+            yield return (f, name);
+        }
+        var scripts = Path.Combine(folder, "scripts");
+        if (Directory.Exists(scripts))
+            foreach (var f in Directory.GetFiles(scripts, "*.js"))
+                yield return (f, "scripts/" + Path.GetFileName(f));
     }
 
     private void OpenLevelFolder()
@@ -783,7 +809,7 @@ public partial class App : Control
         if (what == NotificationWMCloseRequest)
         {
             if (autotest != null) { GetTree().Quit(); return; }
-            ConfirmDiscard(() => GetTree().Quit());
+            ConfirmDiscard(() => UI.ScriptEditorWindow.ConfirmQuit(() => GetTree().Quit()));
         }
     }
 }

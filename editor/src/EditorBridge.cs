@@ -10,7 +10,7 @@ namespace Beatform.Editor;
 /// <summary>
 /// Lets other programs (the beatform command-line tool, an AI through it) drive the running editor:
 /// they write a command to %LOCALAPPDATA%/Beatform/editor-bridge/command.json and read the answer
-/// from result.json. Commands: ping, state, open, reload, save, seek, play, stop, select, shot.
+/// from result.json. Commands: ping, state, open, reload, save, seek, play, stop, select, shot, quit.
 /// See docs/ai-tools.md.
 /// </summary>
 public static class EditorBridge
@@ -84,6 +84,13 @@ public static class EditorBridge
             case "stop":
                 app.StopPlayback();
                 break;
+            case "quit":
+                if ((S.Dirty || UI.ScriptEditorWindow.HasUnsaved) && cmd["force"]?.GetValue<bool>() != true)
+                    throw new Exception("there are unsaved edits (save first, or use force: true to discard them)");
+                AddState(reply);
+                Write(reply);
+                Callable.From(() => app.GetTree().Quit()).CallDeferred();
+                return false;
             case "select":
                 S.Select((cmd["ids"] as JsonArray)?.Select(v => (string)v) ?? Enumerable.Empty<string>());
                 break;

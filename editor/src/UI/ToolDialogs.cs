@@ -52,7 +52,7 @@ public static class ToolDialogs
         dlg.Confirmed += () => { Repeat(app, sel); dlg.QueueFree(); };
         dlg.Canceled += () => dlg.QueueFree();
         app.AddChild(dlg);
-        dlg.PopupCentered();
+        UiTheme.PopupFitted(dlg);
     }
 
     private static void Repeat(App app, List<EditObject> sel)
@@ -141,6 +141,6 @@ public static class ToolDialogs
         };
         dlg.Canceled += () => dlg.QueueFree();
         app.AddChild(dlg);
-        dlg.PopupCentered();
+        UiTheme.PopupFitted(dlg);
     }
 }

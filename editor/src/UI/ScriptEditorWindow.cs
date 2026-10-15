@@ -47,6 +47,17 @@ public partial class ScriptEditorWindow : Window
 
     public void SaveNow() => Save();
 
+    /// <summary>Unsaved script edits in the open code editor.</summary>
+    public static bool HasUnsaved => instance != null && IsInstanceValid(instance) && instance.dirty;
+
+    /// <summary>Before the editor closes: asks about unsaved script edits, then runs <paramref name="then"/>.</summary>
+    public static void ConfirmQuit(Action then)
+    {
+        if (!HasUnsaved) { then(); return; }
+        instance.Show();
+        instance.ConfirmUnsaved(then);
+    }
+
     /// <summary>Opens the editor on a script (null: keep the current one, or the level's first script).</summary>
     public static void Open(string name)
     {
@@ -92,7 +103,7 @@ public partial class ScriptEditorWindow : Window
         };
         dlg.VisibilityChanged += () => { if (!dlg.Visible) dlg.QueueFree(); };
         parent.AddChild(dlg);
-        dlg.PopupCentered();
+        UiTheme.PopupFitted(dlg);
         name.GrabFocus();
     }
 
@@ -354,7 +365,7 @@ public partial class ScriptEditorWindow : Window
         foreach (var t in ScriptsService.I.All.OrderBy(t => ScriptsService.I.IsInLevel(t.Name) ? 0 : 1).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase))
         {
             bool mine = ScriptsService.I.IsInLevel(t.Name);
-            string kind = t.Kind == ScriptKind.Pattern ? "pattern" : "attack";
+            string kind = ScriptsService.I.KindName(t);
             picker.AddItem($"{t.Name}.js   ·   {kind}{(mine ? "" : "   ·   library")}{(t.CompileError != null ? "   ⚠" : "")}");
             pickerNames.Add(t.Name);
         }
@@ -476,7 +487,7 @@ public partial class ScriptEditorWindow : Window
             else
             {
                 string fns = string.Join(", ", new[] { t.StartFn != null ? "start" : null, t.HasUpdate ? "update" : null, t.DrawFn != null ? "draw" : null }.Where(x => x != null));
-                summary = $"✓ attack  ·  {(fns.Length > 0 ? fns : "no start/update/draw yet")}  ·  {t.Params.Count} setting{(t.Params.Count == 1 ? "" : "s")}";
+                summary = $"✓ {(t.Category is "Camera" or "Screen" or "Effects" ? "effect" : "attack")}  ·  {(fns.Length > 0 ? fns : "no start/update/draw yet")}  ·  {t.Params.Count} setting{(t.Params.Count == 1 ? "" : "s")}";
             }
         }
         catch (Exception e) { summary = "✕ " + e.Message; liveError = e.Message; }
