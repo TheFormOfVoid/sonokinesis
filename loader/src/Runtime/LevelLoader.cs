@@ -1,11 +1,11 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using Beatform.Audio;
-using Beatform.Core;
+using Sonokinesis.Audio;
+using Sonokinesis.Core;
 using UnityEngine;
 
-namespace Beatform.Loader.Runtime;
+namespace Sonokinesis.Loader.Runtime;
 
 /// <summary>
 /// Loads a level in the background (JSON and audio decoding) and finishes on the main thread,
@@ -36,7 +36,7 @@ internal sealed class LevelLoader
     public LoadedLevel Finish()
     {
         var (data, pcm) = task.Result;
-        var clip = AudioClip.Create("beatform:" + data.Meta.Id, pcm.Frames, pcm.Channels, pcm.SampleRate, false);
+        var clip = AudioClip.Create("sonokinesis:" + data.Meta.Id, pcm.Frames, pcm.Channels, pcm.SampleRate, false);
         clip.SetData(pcm.Samples, 0);
         return new LoadedLevel { Folder = Folder, Data = data, Evaluator = new LevelEvaluator(data), Clip = clip };
     }

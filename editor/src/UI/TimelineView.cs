@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Beatform.Editor.Audio;
-using Beatform.Editor.Model;
+using Sonokinesis.Editor.Audio;
+using Sonokinesis.Editor.Model;
 using Godot;
 
-namespace Beatform.Editor.UI;
+namespace Sonokinesis.Editor.UI;
 
 /// <summary>
 /// The timeline: ruler with bars and beats, the song waveform, checkpoints, scene events and every

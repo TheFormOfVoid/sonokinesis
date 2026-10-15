@@ -5,10 +5,10 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace Beatform.Cli;
+namespace Sonokinesis.Cli;
 
 /// <summary>
-/// beatform: the Beatform command-line tool. Every command is also an MCP tool (beatform mcp).
+/// sonokinesis: the Sonokinesis command-line tool. Every command is also an MCP tool (sonokinesis mcp).
 /// Arguments are --name value; a few may be given in order without names. Values that look like
 /// JSON (numbers, arrays, objects, true/false) are read as JSON; @file reads a file.
 /// </summary>
@@ -26,7 +26,7 @@ public static class Program
         string name = args[0].Replace('-', '_');
         var cmd = Commands.All.FirstOrDefault(c => c.Name == name)
             ?? Commands.All.FirstOrDefault(c => c.Name.Split('_').Any(p => p == name) && Commands.All.Count(x => x.Name.Split('_').Any(q => q == name)) == 1);
-        if (cmd == null) { Console.Error.WriteLine($"unknown command '{args[0]}'. Run `beatform help` for the list."); return 2; }
+        if (cmd == null) { Console.Error.WriteLine($"unknown command '{args[0]}'. Run `sonokinesis help` for the list."); return 2; }
         if (args.Skip(1).Any(a => a is "-h" or "--help")) { Help(cmd.Name); return 0; }
         try
         {
@@ -70,7 +70,7 @@ public static class Program
     private static JsonNode Value(Command cmd, string key, string val)
     {
         string type = (string)cmd.Schema["properties"]?[key]?["type"];
-        if (type == null) throw new CliError($"'{cmd.Name}' has no option --{key}. Run `beatform help {cmd.Name}`.");
+        if (type == null) throw new CliError($"'{cmd.Name}' has no option --{key}. Run `sonokinesis help {cmd.Name}`.");
         if (val.StartsWith("@") && type is "array" or "object" && System.IO.File.Exists(val[1..])) val = System.IO.File.ReadAllText(val[1..]);
         if (type == "string")
         {
@@ -88,18 +88,18 @@ public static class Program
         {
             var c = Commands.All.FirstOrDefault(x => x.Name == command.Replace('-', '_'));
             if (c == null) { Console.Error.WriteLine($"unknown command '{command}'"); return; }
-            Console.WriteLine($"beatform {c.Name.Replace('_', '-')} {string.Join(" ", c.Positional.Select(p => $"[{p}]"))}\n\n{c.Summary}\n");
+            Console.WriteLine($"sonokinesis {c.Name.Replace('_', '-')} {string.Join(" ", c.Positional.Select(p => $"[{p}]"))}\n\n{c.Summary}\n");
             var req = (c.Schema["required"] as JsonArray)?.Select(r => (string)r).ToHashSet() ?? new();
             foreach (var kv in (JsonObject)c.Schema["properties"])
                 Console.WriteLine($"  --{kv.Key,-10} {(string)kv.Value["type"],-8} {(req.Contains(kv.Key) ? "(required) " : "")}{(string)kv.Value["description"]}");
             return;
         }
-        Console.WriteLine("beatform: make and check Beatform levels from the command line (and for AI, as an MCP server).\n");
-        Console.WriteLine("usage: beatform <command> [arguments]     beatform help <command>     beatform mcp\n");
+        Console.WriteLine("sonokinesis: make and check Sonokinesis levels from the command line (and for AI, as an MCP server).\n");
+        Console.WriteLine("usage: sonokinesis <command> [arguments]     sonokinesis help <command>     sonokinesis mcp\n");
         foreach (var c in Commands.All) Console.WriteLine($"  {c.Name.Replace('_', '-'),-18} {c.Summary}");
         Console.WriteLine("\n  mcp                Run as an MCP server on stdin/stdout (for AI clients).");
-        Console.WriteLine("\nExamples:\n  beatform new-level \"My Level\" --song song.ogg --title \"My Song\"\n  beatform analyze-song \"My Level\"\n" +
-            "  beatform place-script \"My Level\" bullet_ring --at 4000 --params '{\"count\":16}'\n  beatform validate-level \"My Level\"\n" +
-            "  beatform render-sheet \"My Level\" --from 0 --to 16000 --count 12\n  beatform play-in-game \"My Level\" --from 4000");
+        Console.WriteLine("\nExamples:\n  sonokinesis new-level \"My Level\" --song song.ogg --title \"My Song\"\n  sonokinesis analyze-song \"My Level\"\n" +
+            "  sonokinesis place-script \"My Level\" bullet_ring --at 4000 --params '{\"count\":16}'\n  sonokinesis validate-level \"My Level\"\n" +
+            "  sonokinesis render-sheet \"My Level\" --from 0 --to 16000 --count 12\n  sonokinesis play-in-game \"My Level\" --from 4000");
     }
 }

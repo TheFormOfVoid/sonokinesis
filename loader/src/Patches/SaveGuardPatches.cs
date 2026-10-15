@@ -1,7 +1,7 @@
-using Beatform.Loader.Runtime;
+using Sonokinesis.Loader.Runtime;
 using HarmonyLib;
 
-namespace Beatform.Loader.Patches;
+namespace Sonokinesis.Loader.Patches;
 
 /// <summary>
 /// Custom levels must never change the player's save file or Steam achievements. While a custom

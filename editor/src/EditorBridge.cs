@@ -5,17 +5,17 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Godot;
 
-namespace Beatform.Editor;
+namespace Sonokinesis.Editor;
 
 /// <summary>
-/// Lets other programs (the beatform command-line tool, an AI through it) drive the running editor:
-/// they write a command to %LOCALAPPDATA%/Beatform/editor-bridge/command.json and read the answer
+/// Lets other programs (the sonokinesis command-line tool, an AI through it) drive the running editor:
+/// they write a command to %LOCALAPPDATA%/Sonokinesis/editor-bridge/command.json and read the answer
 /// from result.json. Commands: ping, state, open, reload, save, seek, play, stop, select, shot, quit.
 /// See docs/ai-tools.md.
 /// </summary>
 public static class EditorBridge
 {
-    public static string Dir => Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "Beatform", "editor-bridge");
+    public static string Dir => Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "Sonokinesis", "editor-bridge");
     private static double nextCheck;
     private static string pendingShot;
     private static JsonObject pendingShotReply;
@@ -59,7 +59,7 @@ public static class EditorBridge
         switch (name)
         {
             case "ping":
-                reply["editor"] = "Beatform Editor";
+                reply["editor"] = "Sonokinesis Editor";
                 break;
             case "state":
                 break;

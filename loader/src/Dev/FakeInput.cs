@@ -1,6 +1,6 @@
 using HarmonyLib;
 
-namespace Beatform.Loader.Dev;
+namespace Sonokinesis.Loader.Dev;
 
 /// <summary>
 /// Development only: overrides the local players' stick and dash button, to test how the players

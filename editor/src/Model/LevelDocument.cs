@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace Beatform.Editor.Model;
+namespace Sonokinesis.Editor.Model;
 
 public sealed class EditKey
 {
@@ -229,7 +229,7 @@ public sealed class LevelDocument
         using (var w = new Utf8JsonWriter(ms, new JsonWriterOptions { Indented = indented, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }))
         {
             w.WriteStartObject();
-            w.WriteString("format", "beatform.level");
+            w.WriteString("format", Sonokinesis.Core.LevelData.FormatName);
             w.WriteNumber("formatVersion", 2);
 
             w.WriteStartObject("meta");
@@ -271,7 +271,7 @@ public sealed class LevelDocument
 
             w.WritePropertyName("editor");
             var extra = (JsonObject)EditorExtra.DeepClone();
-            extra["app"] = "Beatform Editor";
+            extra["app"] = "Sonokinesis Editor";
             var groups = new JsonObject();
             foreach (var o in Objects.Where(o => o.Group != null)) groups[o.Id] = o.Group;
             extra["groups"] = groups;
@@ -463,7 +463,7 @@ public sealed class LevelDocument
     public static LevelDocument FromJson(string json, string folder)
     {
         var root = JsonNode.Parse(json, documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip })!.AsObject();
-        if ((string)root["format"] != "beatform.level") throw new FormatException("This file is not a Beatform level.");
+        if (!Sonokinesis.Core.LevelData.IsFormatName((string)root["format"])) throw new FormatException("This file is not a Sonokinesis level.");
         int version = (int?)root["formatVersion"] ?? 1;
         if (version > Core.LevelData.SupportedFormatVersion) throw new FormatException($"This level needs a newer editor (format {version}).");
 

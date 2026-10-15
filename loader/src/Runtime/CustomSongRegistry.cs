@@ -1,16 +1,16 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Beatform.Loader.Runtime;
+namespace Sonokinesis.Loader.Runtime;
 
 /// <summary>
 /// Builds and tracks the game-side song slots (ModelStoryCheckpoint) that stand in for custom
 /// levels. A slot carries our runtime-built MetaSong (checkpoints only; hazards are drawn by
-/// Beatform itself) and the level's AudioClip, so the game's own level flow can run it.
+/// Sonokinesis itself) and the level's AudioClip, so the game's own level flow can run it.
 /// </summary>
 internal static class CustomSongRegistry
 {
-    public const string IdPrefix = "beatform:";
+    public const string IdPrefix = "sonokinesis:";
     private const ushort FirstNumericId = 60000;
     private const float EndCheckpointMarginMs = 150;
 
@@ -92,7 +92,7 @@ internal static class CustomSongRegistry
                 data[i] = Mathf.Sin(2 * Mathf.PI * (bar ? 1320f : 880f) * i / rate) * env * 0.4f;
             }
         }
-        var clip = AudioClip.Create("beatform-click", n, 1, rate, false);
+        var clip = AudioClip.Create("sonokinesis-click", n, 1, rate, false);
         clip.SetData(data, 0);
         return clip;
     }

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using Beatform.Core;
+using Sonokinesis.Core;
 
-namespace Beatform.Cli;
+namespace Sonokinesis.Cli;
 
 /// <summary>An RGB picture with float channels, drawn into with alpha blending.</summary>
 public sealed class Canvas

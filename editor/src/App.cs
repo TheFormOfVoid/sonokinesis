@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Beatform.Editor.Audio;
-using Beatform.Editor.Model;
-using Beatform.Editor.UI;
+using Sonokinesis.Editor.Audio;
+using Sonokinesis.Editor.Model;
+using Sonokinesis.Editor.UI;
 using Godot;
 
-namespace Beatform.Editor;
+namespace Sonokinesis.Editor;
 
 /// <summary>The editor window: layout, playback, files, shortcuts and the commands panels share.</summary>
 public partial class App : Control
@@ -33,7 +33,7 @@ public partial class App : Control
     {
         Instance = this;
         Theme = UiTheme.Build();
-        GetWindow().Title = "Beatform Editor";
+        GetWindow().Title = "Sonokinesis Editor";
         GetWindow().MinSize = new Vector2I(1100, 640);
         EditorSettings.Load();
 
@@ -106,7 +106,7 @@ public partial class App : Control
         bar.AddThemeConstantOverride("separation", 6);
         panel.AddChild(bar);
 
-        var logo = new Label { Text = "BEATFORM" };
+        var logo = new Label { Text = "SONOKINESIS" };
         logo.AddThemeFontSizeOverride("font_size", 16);
         logo.AddThemeColorOverride("font_color", UiTheme.Pink);
         bar.AddChild(logo);
@@ -163,7 +163,7 @@ public partial class App : Control
         speed.ItemSelected += i => Song.Speed = new[] { 0.25f, 0.5f, 0.75f, 1f }[i];
         bar.AddChild(speed);
         bar.AddChild(Spacer(8));
-        var inGame = Btn("Test in game", TestInGame, "Start the level in the running game from the playhead (F5). Needs the Beatform loader.");
+        var inGame = Btn("Test in game", TestInGame, "Start the level in the running game from the playhead (F5). Needs the Sonokinesis loader.");
         inGame.AddThemeColorOverride("font_color", UiTheme.Pink);
         bar.AddChild(inGame);
         return panel;
@@ -211,7 +211,7 @@ public partial class App : Control
     {
         var d = S.Doc;
         titleLabel.Text = $"{d.Title}{(string.IsNullOrEmpty(d.Artist) ? "" : " — " + d.Artist)}{(S.Dirty ? "   ●" : "")}";
-        GetWindow().Title = $"{(S.Dirty ? "● " : "")}{d.Title} · Beatform Editor";
+        GetWindow().Title = $"{(S.Dirty ? "● " : "")}{d.Title} · Sonokinesis Editor";
         statsLabel.Text = $"{d.Objects.Count} objects · {d.Events.Count} events · {d.Bpm:0.##} BPM   ";
     }
 
@@ -618,7 +618,7 @@ public partial class App : Control
             FileMode = FileDialog.FileModeEnum.OpenFile,
             Access = FileDialog.AccessEnum.Filesystem,
             UseNativeDialog = true,
-            Filters = new[] { "level.json ; Beatform level" },
+            Filters = new[] { "level.json ; Sonokinesis level" },
             CurrentDir = EditorSettings.LevelsRoot,
         };
         fd.FileSelected += path => { fd.QueueFree(); OpenFolder(Path.GetDirectoryName(path)); };

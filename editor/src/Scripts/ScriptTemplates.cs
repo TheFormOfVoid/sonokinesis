@@ -1,4 +1,4 @@
-namespace Beatform.Editor.Scripts;
+namespace Sonokinesis.Editor.Scripts;
 
 /// <summary>
 /// Starting points for new scripts. The code these write into a level is under MIT No Attribution, like

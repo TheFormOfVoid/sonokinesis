@@ -5,11 +5,11 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace Beatform.Editor;
+namespace Sonokinesis.Editor;
 
 /// <summary>
-/// Talks to the Beatform loader inside the game: finds the game folder, asks the loader to play a
-/// level (BepInEx/beatform/bridge/play.json) and reports what it says back (status.json).
+/// Talks to the Sonokinesis loader inside the game: finds the game folder, asks the loader to play a
+/// level (BepInEx/sonokinesis/bridge/play.json) and reports what it says back (status.json).
 /// </summary>
 public static class GameBridge
 {
@@ -30,7 +30,7 @@ public static class GameBridge
 
     private static bool IsGame(string dir) => !string.IsNullOrEmpty(dir) && File.Exists(Path.Combine(dir, "JSB.exe"));
 
-    public static bool LoaderInstalled(string game) => File.Exists(Path.Combine(game, "BepInEx", "plugins", "Beatform", "Beatform.Loader.dll"));
+    public static bool LoaderInstalled(string game) => File.Exists(Path.Combine(game, "BepInEx", "plugins", "Sonokinesis", "Sonokinesis.Loader.dll"));
 
     /// <summary>Steam library folders, read from Steam's own libraryfolders.vdf.</summary>
     private static IEnumerable<string> SteamLibraries()
@@ -62,8 +62,8 @@ public static class GameBridge
     {
         var game = FindGame();
         if (game == null) return (false, "Could not find Just Shapes & Beats. Set its folder in Level… → Editor.");
-        if (!LoaderInstalled(game)) return (false, "The Beatform loader is not installed in the game yet. Run the Beatform installer first.");
-        var bridge = Path.Combine(game, "BepInEx", "beatform", "bridge");
+        if (!LoaderInstalled(game)) return (false, "The Sonokinesis loader is not installed in the game yet. Run the Sonokinesis installer first.");
+        var bridge = Path.Combine(game, "BepInEx", "sonokinesis", "bridge");
         Directory.CreateDirectory(bridge);
         var json = JsonSerializer.Serialize(new { folder = levelFolder, startMs = Math.Max(0, startMs), hard = false });
         File.WriteAllText(Path.Combine(bridge, "play.json"), json);
@@ -81,7 +81,7 @@ public static class GameBridge
         if (DateTime.UtcNow > watchUntil) return;
         var game = FindGame();
         if (game == null) return;
-        var file = Path.Combine(game, "BepInEx", "beatform", "bridge", "status.json");
+        var file = Path.Combine(game, "BepInEx", "sonokinesis", "bridge", "status.json");
         try
         {
             if (!File.Exists(file)) return;

@@ -1,10 +1,10 @@
 using System;
 using System.IO;
-using Beatform.Editor.Audio;
-using Beatform.Editor.Model;
+using Sonokinesis.Editor.Audio;
+using Sonokinesis.Editor.Model;
 using Godot;
 
-namespace Beatform.Editor.UI;
+namespace Sonokinesis.Editor.UI;
 
 /// <summary>Level-wide settings: song info, tempo, timing, colors, and editor preferences.</summary>
 public static class LevelSettingsDialog
@@ -83,7 +83,7 @@ public static class LevelSettingsDialog
             "The Just Shapes & Beats install folder (the one with JSB.exe). Found automatically through Steam when possible.");
         Field(ed, "New levels in", Text(EditorSettings.LevelsRoot, v => EditorSettings.LevelsRoot = v));
         var game = GameBridge.FindGame();
-        ed.AddChild(UiTheme.Small(game == null ? "Game not found." : GameBridge.LoaderInstalled(game) ? "Beatform loader is installed in the game." : "The game was found, but the Beatform loader is not installed yet.",
+        ed.AddChild(UiTheme.Small(game == null ? "Game not found." : GameBridge.LoaderInstalled(game) ? "Sonokinesis loader is installed in the game." : "The game was found, but the Sonokinesis loader is not installed yet.",
             game != null && GameBridge.LoaderInstalled(game) ? UiTheme.Good : UiTheme.Bad));
         ed.AddChild(UiTheme.Small($"Level id: {d.Id}. Folder: {d.FolderPath ?? "(not saved yet)"}"));
 

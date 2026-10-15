@@ -2,7 +2,7 @@ using System;
 using Il2CppSystem.Collections.Generic;
 using UnityEngine;
 
-namespace Beatform.Loader.Runtime;
+namespace Sonokinesis.Loader.Runtime;
 
 /// <summary>
 /// Takes a level from "chosen in the list" to "playing": loads it in the background, fades to

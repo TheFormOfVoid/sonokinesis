@@ -5,8 +5,8 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <RootNamespace>Beatform.Cli</RootNamespace>
-    <AssemblyName>beatform</AssemblyName>
+    <RootNamespace>Sonokinesis.Cli</RootNamespace>
+    <AssemblyName>sonokinesis</AssemblyName>
     <Version>0.2.0</Version>
     <InvariantGlobalization>true</InvariantGlobalization>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>

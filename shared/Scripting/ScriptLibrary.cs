@@ -5,7 +5,7 @@ using Jint;
 using Jint.Native;
 using Jint.Runtime;
 
-namespace Beatform.Core;
+namespace Sonokinesis.Core;
 
 /// <summary>What a script is for: an attack runs every frame in the game; a pattern builds ordinary objects in the editor.</summary>
 public enum ScriptKind { Attack, Pattern }

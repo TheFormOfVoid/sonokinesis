@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Beatform.Core;
+using Sonokinesis.Core;
 using Godot;
 using FileAccess = System.IO.File;
 
-namespace Beatform.Editor.Scripts;
+namespace Sonokinesis.Editor.Scripts;
 
 /// <summary>
 /// The scripts the editor knows: the built-in library (library/ next to the editor) and the open level's
@@ -52,7 +52,7 @@ public sealed class ScriptsService
         {
             var exeDir = Path.GetDirectoryName(OS.GetExecutablePath()) ?? "";
             candidates.Add(Path.Combine(exeDir, "library"));
-            // In the release, library/ sits beside the editor's folder (shared with the beatform tool).
+            // In the release, library/ sits beside the editor's folder (shared with the sonokinesis tool).
             candidates.Add(Path.GetFullPath(Path.Combine(exeDir, "..", "library")));
         }
         catch { }

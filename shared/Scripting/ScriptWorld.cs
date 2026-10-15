@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Jint;
 using Jint.Native;
 
-namespace Beatform.Core;
+namespace Sonokinesis.Core;
 
 internal sealed class ScriptInstance
 {

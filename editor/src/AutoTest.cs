@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using Godot;
 
-namespace Beatform.Editor;
+namespace Sonokinesis.Editor;
 
 /// <summary>
 /// Runs a script of editor actions, one per line, and saves screenshots. Used to check the editor

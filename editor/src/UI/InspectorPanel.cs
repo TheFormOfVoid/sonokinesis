@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Beatform.Core;
-using Beatform.Editor.Model;
-using Beatform.Editor.Scripts;
+using Sonokinesis.Core;
+using Sonokinesis.Editor.Model;
+using Sonokinesis.Editor.Scripts;
 using Godot;
 
-namespace Beatform.Editor.UI;
+namespace Sonokinesis.Editor.UI;
 
 /// <summary>Properties of the selection: one object, several objects, an event, a checkpoint, or the level.</summary>
 public partial class InspectorPanel : PanelContainer
@@ -182,7 +182,7 @@ public partial class InspectorPanel : PanelContainer
         var w = o.Track("w");
         if (previous != null)
         {
-            double r = Beatform.Core.TextFont.Width(o.Shape.Text, o.Shape.Bold) / Beatform.Core.TextFont.Width(previous, o.Shape.Bold);
+            double r = Sonokinesis.Core.TextFont.Width(o.Shape.Text, o.Shape.Bold) / Sonokinesis.Core.TextFont.Width(previous, o.Shape.Bold);
             if (w.Count == 0) w.Add(new EditKey { T = 0, V = EditObject.DefaultValue("w") });
             foreach (var k in w) k.V = Math.Round(k.V * r, 2);
             return;
@@ -190,7 +190,7 @@ public partial class InspectorPanel : PanelContainer
         var h = o.Track("h");
         double hv = h.Count > 0 ? h[0].V : EditObject.DefaultValue("h");
         w.Clear();
-        w.Add(new EditKey { T = 0, V = Math.Round(hv * Beatform.Core.TextFont.Width(o.Shape.Text, o.Shape.Bold), 2) });
+        w.Add(new EditKey { T = 0, V = Math.Round(hv * Sonokinesis.Core.TextFont.Width(o.Shape.Text, o.Shape.Bold), 2) });
     }
 
     private void BuildObject(EditObject o)
@@ -241,9 +241,9 @@ public partial class InspectorPanel : PanelContainer
                 Row("Bold", Check("bold letters", () => o.Shape.Bold, v =>
                     {
                         string t = o.Shape.Text;
-                        double before = Beatform.Core.TextFont.Width(t, o.Shape.Bold);
+                        double before = Sonokinesis.Core.TextFont.Width(t, o.Shape.Bold);
                         o.Shape.Bold = v;
-                        double r = Beatform.Core.TextFont.Width(t, v) / before;
+                        double r = Sonokinesis.Core.TextFont.Width(t, v) / before;
                         foreach (var k in o.Track("w")) k.V = Math.Round(k.V * r, 2);
                     }, "Toggle bold"),
                     "Montserrat Bold or Medium. The width follows the letters.");
@@ -705,7 +705,7 @@ public partial class InspectorPanel : PanelContainer
             "Timeline: drag bars to move in time, drag edges to change length. Ctrl+drag duplicates.",
             "Double-click the checkpoint row to add a checkpoint.",
             "Space previews from the playhead. To play the level, use Test in game.",
-            "F5 tests the level in the real game when the Beatform loader is installed.",
+            "F5 tests the level in the real game when the Sonokinesis loader is installed.",
         }) box.AddChild(UiTheme.Small("• " + tip, UiTheme.Text));
         Section("Shortcuts");
         box.AddChild(UiTheme.Small("Ctrl+N new · Ctrl+O open · Ctrl+S save · Ctrl+Z / Ctrl+Y undo / redo · Ctrl+C / Ctrl+V copy / paste at playhead · Ctrl+D duplicate · Del delete · K key all tracks · Arrows nudge (Shift ×10) · , and . step one grid · Home / End · Ctrl+wheel zoom · Shift+wheel scroll lanes"));

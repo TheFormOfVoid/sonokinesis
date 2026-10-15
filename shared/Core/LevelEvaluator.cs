@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Beatform.Core;
+namespace Sonokinesis.Core;
 
 public enum Phase { Absent, Warning, Active, Outro }
 

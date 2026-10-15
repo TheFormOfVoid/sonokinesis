@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using Godot;
 
-namespace Beatform.Editor;
+namespace Sonokinesis.Editor;
 
 /// <summary>Editor preferences kept in the user data folder: recent levels, game folder, author name.</summary>
 public static class EditorSettings
@@ -41,7 +41,13 @@ public static class EditorSettings
         {
             var root = data.levelsRoot;
             if (string.IsNullOrEmpty(root))
-                root = Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments), "Beatform Levels");
+            {
+                var docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+                root = Path.Combine(docs, "Sonokinesis Levels");
+                // Before the rename the default folder was "Beatform Levels": keep using it if it is there.
+                var old = Path.Combine(docs, "Beatform Levels");
+                if (!Directory.Exists(root) && Directory.Exists(old)) root = old;
+            }
             Directory.CreateDirectory(root);
             return root;
         }
@@ -52,6 +58,13 @@ public static class EditorSettings
     {
         try
         {
+            // Settings from before the rename (the editor was "Beatform Editor") carry over once.
+            var old = Path.Combine(Path.GetDirectoryName(OS.GetUserDataDir()) ?? "", "Beatform Editor", "settings.json");
+            if (!File.Exists(FilePath) && File.Exists(old))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
+                File.Copy(old, FilePath);
+            }
             if (File.Exists(FilePath)) data = JsonSerializer.Deserialize<Data>(File.ReadAllText(FilePath)) ?? new Data();
         }
         catch { data = new Data(); }

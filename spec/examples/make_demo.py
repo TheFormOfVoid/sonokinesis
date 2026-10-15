@@ -1,4 +1,4 @@
-"""Generates the Beatform demo level: an original synthesized 128 BPM track and a level that uses
+"""Generates the Sonokinesis demo level: an original synthesized 128 BPM track and a level that uses
 every shape, parenting, eases, checkpoints and scene events. Nothing here comes from any game.
 
     python make_demo.py <output folder>
@@ -327,13 +327,13 @@ def main():
     os.makedirs(out, exist_ok=True)
     build_level()
     level = {
-        "format": "beatform.level",
+        "format": "sonokinesis.level",
         "formatVersion": 1,
         "meta": {
-            "id": "beatform-demo-128",
+            "id": "sonokinesis-demo-128",
             "title": "Neon Rehearsal",
-            "artist": "Beatform (synthesized)",
-            "author": "Beatform",
+            "artist": "Sonokinesis (synthesized)",
+            "author": "Sonokinesis",
             "description": "The built-in demo: every shape, parenting, eases, checkpoints and scene events, on an original 128 BPM track.",
             "audio": "song.ogg",
             "bpm": BPM,

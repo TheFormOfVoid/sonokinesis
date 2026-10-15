@@ -8,12 +8,12 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-namespace Beatform.Cli;
+namespace Sonokinesis.Cli;
 
 /// <summary>
-/// Talks to the Beatform loader inside the game through files in BepInEx/beatform: bridge/play.json
+/// Talks to the Sonokinesis loader inside the game through files in BepInEx/sonokinesis: bridge/play.json
 /// starts a level, bridge/status.json says how it went. The developer console (cmd.txt / out.txt,
-/// only when DevConsole = true in BepInEx/config/dev.beatform.loader.cfg) can take screenshots.
+/// only when DevConsole = true in BepInEx/config/dev.sonokinesis.loader.cfg) can take screenshots.
 /// </summary>
 public static class GameLink
 {
@@ -21,7 +21,7 @@ public static class GameLink
 
     public static string FindGame()
     {
-        var env = Environment.GetEnvironmentVariable("BEATFORM_GAME_DIR");
+        var env = Environment.GetEnvironmentVariable("SONOKINESIS_GAME_DIR");
         if (IsGame(env)) return env;
         foreach (var lib in SteamLibraries())
         {
@@ -60,8 +60,8 @@ public static class GameLink
         return res.Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static string Game() => FindGame() ?? throw new CliError("could not find Just Shapes & Beats (set BEATFORM_GAME_DIR to its folder)");
-    private static string DataDir(string game) => Path.Combine(game, "BepInEx", "beatform");
+    private static string Game() => FindGame() ?? throw new CliError("could not find Just Shapes & Beats (set SONOKINESIS_GAME_DIR to its folder)");
+    private static string DataDir(string game) => Path.Combine(game, "BepInEx", "sonokinesis");
 
     public static bool Running => Process.GetProcessesByName("JSB").Length > 0;
 
@@ -69,8 +69,8 @@ public static class GameLink
     public static JsonObject Play(string folder, double fromMs, double waitSeconds = 60)
     {
         var game = Game();
-        if (!File.Exists(Path.Combine(game, "BepInEx", "plugins", "Beatform", "Beatform.Loader.dll")))
-            throw new CliError("the Beatform loader is not installed in the game (run the Beatform installer)");
+        if (!File.Exists(Path.Combine(game, "BepInEx", "plugins", "Sonokinesis", "Sonokinesis.Loader.dll")))
+            throw new CliError("the Sonokinesis loader is not installed in the game (run the Sonokinesis installer)");
         var bridge = Path.Combine(DataDir(game), "bridge");
         Directory.CreateDirectory(bridge);
         var status = Path.Combine(bridge, "status.json");
@@ -100,7 +100,7 @@ public static class GameLink
         var game = FindGame();
         var res = new JsonObject { ["gameFolder"] = game, ["running"] = Running };
         if (game == null) return res;
-        res["loaderInstalled"] = File.Exists(Path.Combine(game, "BepInEx", "plugins", "Beatform", "Beatform.Loader.dll"));
+        res["loaderInstalled"] = File.Exists(Path.Combine(game, "BepInEx", "plugins", "Sonokinesis", "Sonokinesis.Loader.dll"));
         var status = Path.Combine(DataDir(game), "bridge", "status.json");
         try { if (File.Exists(status)) res["lastPlay"] = JsonNode.Parse(File.ReadAllText(status)); } catch { }
         res["devConsole"] = DevConsoleEnabled(game);
@@ -109,7 +109,7 @@ public static class GameLink
 
     private static bool DevConsoleEnabled(string game)
     {
-        var cfg = Path.Combine(game, "BepInEx", "config", "dev.beatform.loader.cfg");
+        var cfg = Path.Combine(game, "BepInEx", "config", "dev.sonokinesis.loader.cfg");
         return File.Exists(cfg) && Regex.IsMatch(File.ReadAllText(cfg), @"^\s*DevConsole\s*=\s*true", RegexOptions.Multiline | RegexOptions.IgnoreCase);
     }
 
@@ -118,7 +118,7 @@ public static class GameLink
     {
         var game = Game();
         if (!Running) throw new CliError("the game is not running");
-        if (!DevConsoleEnabled(game)) throw new CliError("the developer console is off: set DevConsole = true in BepInEx/config/dev.beatform.loader.cfg and restart the game");
+        if (!DevConsoleEnabled(game)) throw new CliError("the developer console is off: set DevConsole = true in BepInEx/config/dev.sonokinesis.loader.cfg and restart the game");
         var dir = DataDir(game);
         Directory.CreateDirectory(dir);
         var outFile = Path.Combine(dir, "out.txt");
@@ -163,12 +163,12 @@ public static class GameLink
 }
 
 /// <summary>
-/// Drives the running Beatform Editor through %LOCALAPPDATA%/Beatform/editor-bridge (command.json in,
+/// Drives the running Sonokinesis Editor through %LOCALAPPDATA%/Sonokinesis/editor-bridge (command.json in,
 /// result.json out). Commands: ping, state, open, reload, save, seek, play, stop, select, shot.
 /// </summary>
 public static class EditorLink
 {
-    public static string Dir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Beatform", "editor-bridge");
+    public static string Dir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sonokinesis", "editor-bridge");
 
     public static JsonObject Send(JsonObject command, double waitSeconds = 15)
     {
@@ -193,6 +193,6 @@ public static class EditorLink
             }
             catch { }
         }
-        throw new CliError("the editor did not answer (is Beatform Editor running?)");
+        throw new CliError("the editor did not answer (is Sonokinesis Editor running?)");
     }
 }

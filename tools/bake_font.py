@@ -1,6 +1,6 @@
 """Bakes the text font into shared/Core/TextFontData.cs.
 
-Beatform draws text as filled triangles like every other shape, so the font's glyph outlines are
+Sonokinesis draws text as filled triangles like every other shape, so the font's glyph outlines are
 flattened (quadratic curves become short lines) and triangulated here, once, and stored in the code.
 The font is Montserrat (Bold and Medium), SIL Open Font License 1.1 (see shared/Fonts/OFL.txt).
 
@@ -285,7 +285,7 @@ def main():
 // Glyphs of Montserrat Bold and Montserrat Medium, Copyright 2011 The Montserrat Project Authors
 // (https://github.com/JulietaUla/Montserrat), licensed under the SIL Open Font License 1.1
 // (shared/Fonts/OFL.txt). Outlines flattened and triangulated; units of 1/1000 em, y down.
-namespace Beatform.Core;
+namespace Sonokinesis.Core;
 
 internal static class TextFontData
 {{

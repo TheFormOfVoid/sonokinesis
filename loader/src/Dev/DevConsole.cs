@@ -8,11 +8,11 @@ using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.InteropTypes;
 using UnityEngine;
 
-namespace Beatform.Loader.Dev;
+namespace Sonokinesis.Loader.Dev;
 
 /// <summary>
-/// Development console driven by files: write a command to BepInEx/beatform/cmd.txt and the
-/// result appears in BepInEx/beatform/out.txt. Used to explore live game state while building
+/// Development console driven by files: write a command to BepInEx/sonokinesis/cmd.txt and the
+/// result appears in BepInEx/sonokinesis/out.txt. Used to explore live game state while building
 /// the loader. Runs on Unity's main thread.
 /// </summary>
 public class DevConsole : MonoBehaviour
@@ -67,7 +67,7 @@ public class DevConsole : MonoBehaviour
         try
         {
             GUI.color = Color.white;
-            GUI.Box(new Rect(40, 40, 420, 120), "Beatform IMGUI test");
+            GUI.Box(new Rect(40, 40, 420, 120), "Sonokinesis IMGUI test");
             GUI.Label(new Rect(60, 80, 380, 30), "Label works. Time " + Time.unscaledTime.ToString("0.0"));
             var style = new GUIStyle(GUI.skin.label) { fontSize = 28 };
             style.normal.textColor = new Color(1f, 0.16f, 0.43f);

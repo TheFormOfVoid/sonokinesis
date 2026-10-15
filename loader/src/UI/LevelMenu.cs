@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
-using Beatform.Loader.Runtime;
+using Sonokinesis.Loader.Runtime;
 using UnityEngine;
 
-namespace Beatform.Loader.UI;
+namespace Sonokinesis.Loader.UI;
 
 /// <summary>
-/// The custom level list, drawn with Unity's immediate mode GUI and Beatform's own styling.
+/// The custom level list, drawn with Unity's immediate mode GUI and Sonokinesis's own styling.
 /// Opened from the main menu with the menu key (F1 by default).
 /// </summary>
 internal sealed class LevelMenu
@@ -115,7 +115,7 @@ internal sealed class LevelMenu
         Fill(new Rect(panel.x, panel.y, panel.width, 6 * s), Pink);
 
         Label(new Rect(panel.x + 40 * s, panel.y + 30 * s, 800 * s, 60 * s), "CUSTOM LEVELS", Style("title", 46, Text, FontStyle.Bold));
-        Label(new Rect(panel.x + 42 * s, panel.y + 88 * s, 900 * s, 30 * s), $"Beatform loader {Plugin.Version}  ·  levels folder: {Settings.LevelsFolder}", Style("small", 18, Dim));
+        Label(new Rect(panel.x + 42 * s, panel.y + 88 * s, 900 * s, 30 * s), $"Sonokinesis loader {Plugin.Version}  ·  levels folder: {Settings.LevelsFolder}", Style("small", 18, Dim));
 
         var entries = LevelLibrary.Entries;
         var listRect = new Rect(panel.x + 40 * s, panel.y + 140 * s, 640 * s, h - 220 * s);
@@ -129,7 +129,7 @@ internal sealed class LevelMenu
         }
         else if (entries.Count == 0)
         {
-            Label(Inset(listRect, 24 * s), "No levels yet.\n\nPut level folders (or .zip files) made with the Beatform editor into the levels folder shown above, then press F5.", Style("bodywrap", 22, Dim, wrap: true));
+            Label(Inset(listRect, 24 * s), "No levels yet.\n\nPut level folders (or .zip files) made with the Sonokinesis editor into the levels folder shown above, then press F5.", Style("bodywrap", 22, Dim, wrap: true));
         }
         else
         {

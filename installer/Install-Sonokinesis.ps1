@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-  Installs (or updates) the Beatform loader into Just Shapes & Beats.
+  Installs (or updates) the Sonokinesis loader into Just Shapes & Beats.
 
 .DESCRIPTION
-  Copies the BepInEx mod loader (only if the game does not have it yet) and the Beatform plugin into
+  Copies the BepInEx mod loader (only if the game does not have it yet) and the Sonokinesis plugin into
   the game folder, and creates a CustomLevels folder with the demo level. No game file is changed or
-  replaced: everything is added next to the game, and Uninstall-Beatform.ps1 removes exactly what this
+  replaced: everything is added next to the game, and Uninstall-Sonokinesis.ps1 removes exactly what this
   script added. Run it with the game closed.
 
 .PARAMETER GameDir
@@ -25,11 +25,11 @@ function Write-Step($text) { Write-Host "  $text" }
 function Fail($text) { Write-Host ""; Write-Host "  $text" -ForegroundColor Red; Write-Host ""; exit 1 }
 
 Write-Host ""
-Write-Host "  Beatform loader installer" -ForegroundColor Magenta
+Write-Host "  Sonokinesis loader installer" -ForegroundColor Magenta
 Write-Host ""
 
-if (-not (Test-Path (Join-Path $payload 'plugin\Beatform.Loader.dll'))) {
-    Fail "The loader files are missing. Run this script from the unpacked Beatform folder."
+if (-not (Test-Path (Join-Path $payload 'plugin\Sonokinesis.Loader.dll'))) {
+    Fail "The loader files are missing. Run this script from the unpacked Sonokinesis folder."
 }
 
 if (-not $GameDir) { $GameDir = Find-Game }
@@ -43,12 +43,29 @@ if (Get-Process -Name 'JSB' -ErrorAction SilentlyContinue) {
 }
 
 $bepinex = Join-Path $GameDir 'BepInEx'
-$dataDir = Join-Path $bepinex 'beatform'
+$dataDir = Join-Path $bepinex 'sonokinesis'
 $manifest = Join-Path $dataDir $manifestName
+
+# Sonokinesis used to be called Beatform: move its data and settings over and remove the old plugin,
+# so the two never run side by side.
+$oldData = Join-Path $bepinex 'beatform'
+if ((Test-Path $oldData) -and -not (Test-Path $dataDir)) {
+    Move-Item $oldData $dataDir
+    $oldManifest = Join-Path $dataDir $manifestName
+    if (Test-Path $oldManifest) {
+        (Get-Content $oldManifest) -replace '^#bepinex-installed-by-beatform$', '#bepinex-installed-by-sonokinesis' | Set-Content -Encoding UTF8 $oldManifest
+    }
+    Write-Step "Moved Beatform's data to the Sonokinesis folder."
+}
+$oldCfg = Join-Path $bepinex 'config\dev.beatform.loader.cfg'
+$newCfg = Join-Path $bepinex 'config\dev.sonokinesis.loader.cfg'
+if ((Test-Path $oldCfg) -and -not (Test-Path $newCfg)) { Move-Item $oldCfg $newCfg; Write-Step "Kept your Beatform loader settings." }
+$oldPlugin = Join-Path $bepinex 'plugins\Beatform'
+if (Test-Path $oldPlugin) { Remove-Item -Recurse -Force $oldPlugin; Write-Step "Removed the old Beatform plugin (replaced by Sonokinesis)." }
 $added = New-Object System.Collections.Generic.List[string]
 if (Test-Path $manifest) { $added.AddRange([string[]](Get-Content $manifest)) }
 
-# 1. BepInEx (the mod loader Beatform runs on). Installed only when the game has none.
+# 1. BepInEx (the mod loader Sonokinesis runs on). Installed only when the game has none.
 $il2cppCore = Join-Path $bepinex 'core\BepInEx.Unity.IL2CPP.dll'
 if (Test-Path $il2cppCore) {
     Write-Step "BepInEx is already installed, keeping it."
@@ -63,14 +80,14 @@ if (Test-Path $il2cppCore) {
         Copy-Item -Recurse -Force $item.FullName $target
         $added.Add($item.Name)
     }
-    $added.Add('#bepinex-installed-by-beatform')
+    $added.Add('#bepinex-installed-by-sonokinesis')
 }
 
-# 2. The Beatform plugin (always replaced, so this also updates).
-$pluginDir = Join-Path $bepinex 'plugins\Beatform'
+# 2. The Sonokinesis plugin (always replaced, so this also updates).
+$pluginDir = Join-Path $bepinex 'plugins\Sonokinesis'
 New-Item -ItemType Directory -Force $pluginDir | Out-Null
 Copy-Item -Force (Join-Path $payload 'plugin\*') $pluginDir
-Write-Step "Installed the Beatform plugin."
+Write-Step "Installed the Sonokinesis plugin."
 
 # 3. A folder for custom levels, with the demo level.
 $levels = Join-Path $GameDir 'CustomLevels'

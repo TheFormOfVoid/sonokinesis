@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Beatform.Editor.Model;
+using Sonokinesis.Editor.Model;
 using Godot;
 
-namespace Beatform.Editor.UI;
+namespace Sonokinesis.Editor.UI;
 
 /// <summary>Repeat (array copies with steps) and Stretch (re-time) dialogs for the selection.</summary>
 public static class ToolDialogs

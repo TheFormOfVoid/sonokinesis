@@ -1,6 +1,6 @@
 using System;
 
-namespace Beatform.Loader.Runtime;
+namespace Sonokinesis.Loader.Runtime;
 
 /// <summary>
 /// The custom level currently being played, from launch until the game leaves the level.

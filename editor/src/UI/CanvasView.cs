@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Beatform.Core;
-using Beatform.Editor.Audio;
-using Beatform.Editor.Model;
+using Sonokinesis.Core;
+using Sonokinesis.Editor.Audio;
+using Sonokinesis.Editor.Model;
 using Godot;
 
-namespace Beatform.Editor.UI;
+namespace Sonokinesis.Editor.UI;
 
 /// <summary>
 /// The stage: draws the level at the playhead exactly as the game will (same evaluator), and lets the
@@ -488,13 +488,13 @@ public partial class CanvasView : Control
     // ---------------- drag and drop from the palette ----------------
 
     public override bool _CanDropData(Vector2 atPosition, Variant data) =>
-        data.VariantType == Variant.Type.Dictionary && data.AsGodotDictionary().ContainsKey("beatform");
+        data.VariantType == Variant.Type.Dictionary && data.AsGodotDictionary().ContainsKey("sonokinesis");
 
     public override void _DropData(Vector2 atPosition, Variant data)
     {
         var dict = data.AsGodotDictionary();
         var g = ViewToGame(atPosition);
-        App.Instance.Palette.DropAt((string)dict["beatform"], g.X, g.Y);
+        App.Instance.Palette.DropAt((string)dict["sonokinesis"], g.X, g.Y);
     }
 
     // ---------------- track helpers ----------------

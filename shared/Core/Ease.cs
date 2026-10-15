@@ -1,6 +1,6 @@
 using System;
 
-namespace Beatform.Core;
+namespace Sonokinesis.Core;
 
 /// <summary>Easing functions exactly as defined in spec/level-format.md.</summary>
 public static class Ease

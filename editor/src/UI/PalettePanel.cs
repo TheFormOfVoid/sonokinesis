@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Beatform.Core;
-using Beatform.Editor.Model;
-using Beatform.Editor.Scripts;
+using Sonokinesis.Core;
+using Sonokinesis.Editor.Model;
+using Sonokinesis.Editor.Scripts;
 using Godot;
 
-namespace Beatform.Editor.UI;
+namespace Sonokinesis.Editor.UI;
 
 /// <summary>
 /// Things to add: plain shapes, scripted attacks and effects, patterns and scene items. Click to add at
@@ -28,7 +28,7 @@ public partial class PalettePanel : PanelContainer
         ("star", "★  Star", "Five-pointed star"),
         ("ring", "◯  Ring", "Ring with a safe hole"),
         ("spikes", "✹  Spike ball", "Round spiky ball"),
-        ("text", "A  Text", "Words in Beatform's font"),
+        ("text", "A  Text", "Words in Sonokinesis's font"),
         ("imposter", "◆  Imposter", "A copy of a player that chases the nearest one, dashing like a player"),
     };
 
@@ -211,7 +211,7 @@ public partial class PalettePanel : PanelContainer
                 o.Hitbox = false;
                 o.Warn = 0;
                 o.Track("h")[0].V = 48;
-                o.Track("w")[0].V = Math.Round(48 * Beatform.Core.TextFont.Width(o.Shape.Text, o.Shape.Bold), 2);
+                o.Track("w")[0].V = Math.Round(48 * Sonokinesis.Core.TextFont.Width(o.Shape.Text, o.Shape.Bold), 2);
             }
             S.Edit("Add " + o.Shape.Type, () => S.Doc.Objects.Add(o));
             S.Select(new[] { o.Id });
@@ -276,7 +276,7 @@ public partial class PalettePanel : PanelContainer
             var preview = new Label { Text = Text };
             preview.AddThemeColorOverride("font_color", UiTheme.Pink);
             SetDragPreview(preview);
-            return new Godot.Collections.Dictionary { { "beatform", PayloadId } };
+            return new Godot.Collections.Dictionary { { "sonokinesis", PayloadId } };
         }
     }
 }

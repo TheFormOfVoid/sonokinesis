@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace Beatform.Audio;
+namespace Sonokinesis.Audio;
 
 /// <summary>Decoded PCM audio: interleaved float samples in [-1, 1].</summary>
 public sealed class PcmAudio

@@ -1,8 +1,8 @@
 using System;
-using Beatform.Loader.Runtime;
+using Sonokinesis.Loader.Runtime;
 using HarmonyLib;
 
-namespace Beatform.Loader.Patches;
+namespace Sonokinesis.Loader.Patches;
 
 /// <summary>
 /// A level with a "credits" event moves the game's own title card (song and artist) to that time:

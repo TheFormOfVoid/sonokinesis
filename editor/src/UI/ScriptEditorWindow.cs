@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Beatform.Core;
-using Beatform.Editor.Scripts;
+using Sonokinesis.Core;
+using Sonokinesis.Editor.Scripts;
 using Godot;
 
-namespace Beatform.Editor.UI;
+namespace Sonokinesis.Editor.UI;
 
 /// <summary>
 /// The code editor for scripts: JavaScript with highlighting, completion of the scripting API, a live

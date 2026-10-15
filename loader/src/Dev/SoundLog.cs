@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using HarmonyLib;
 
-namespace Beatform.Loader.Dev;
+namespace Sonokinesis.Loader.Dev;
 
 /// <summary>
 /// Development only: records the id of every game sound that is created, to find which sound the

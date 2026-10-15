@@ -6,7 +6,7 @@
 #   ./dev.sh log [n]       tail the BepInEx log
 set -euo pipefail
 GAME="${GAME_DIR:-/g/Steam/steamapps/common/Just Shapes & Beats}"
-DATA="$GAME/BepInEx/beatform"
+DATA="$GAME/BepInEx/sonokinesis"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 export PATH="/c/Program Files/dotnet:$PATH"
 

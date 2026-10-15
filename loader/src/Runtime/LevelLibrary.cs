@@ -4,9 +4,9 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
-using Beatform.Core;
+using Sonokinesis.Core;
 
-namespace Beatform.Loader.Runtime;
+namespace Sonokinesis.Loader.Runtime;
 
 /// <summary>A level found in the levels folder, with enough data for the level list.</summary>
 internal sealed class LevelEntry

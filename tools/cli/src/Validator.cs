@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
-using Beatform.Core;
+using Sonokinesis.Core;
 
-namespace Beatform.Cli;
+namespace Sonokinesis.Cli;
 
 /// <summary>
 /// Checks a level the way the game will read it: the file's structure, its scripts (compiled and run
@@ -34,7 +34,7 @@ public static class Validator
         void W(string s) => warnings.Add(s);
         double N(JsonNode n, double f) => LevelFolder.Num(n, f);
 
-        if ((string)root["format"] != "beatform.level") W("\"format\" should be \"beatform.level\"");
+        if (!LevelData.IsFormatName((string)root["format"])) E("\"format\" must be \"sonokinesis.level\"");
         int version = (int)N(root["formatVersion"], 1);
         if (version > LevelData.SupportedFormatVersion) E($"formatVersion {version} is newer than this tool supports ({LevelData.SupportedFormatVersion})");
 
@@ -111,7 +111,7 @@ public static class Validator
                 var t = levelScripts.Get(sname);
                 if (t == null)
                 {
-                    if (library.Get(sname) != null) E($"{who}: script '{sname}' is in the library but not in the level's scripts folder (copy it: `beatform place` / place_script do that)");
+                    if (library.Get(sname) != null) E($"{who}: script '{sname}' is in the library but not in the level's scripts folder (copy it: `sonokinesis place` / place_script do that)");
                     else E($"{who}: no script named '{sname}' in scripts/");
                 }
                 else if (t.Kind == ScriptKind.Pattern) E($"{who}: '{sname}' is a pattern; patterns build objects in the editor and cannot run in the game");

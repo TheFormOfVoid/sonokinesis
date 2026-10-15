@@ -6,7 +6,7 @@ using Jint;
 using Jint.Native;
 using Jint.Runtime;
 
-namespace Beatform.Core;
+namespace Sonokinesis.Core;
 
 /// <summary>What a script asked to draw this frame.</summary>
 public struct ScriptDraw

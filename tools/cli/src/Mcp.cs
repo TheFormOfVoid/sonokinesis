@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace Beatform.Cli;
+namespace Sonokinesis.Cli;
 
 /// <summary>
 /// A Model Context Protocol server over stdio (JSON-RPC 2.0, one message per line), so AI clients can
@@ -59,8 +59,8 @@ public static class Mcp
                 {
                     ["protocolVersion"] = (string)p["protocolVersion"] ?? Protocol,
                     ["capabilities"] = new JsonObject { ["tools"] = new JsonObject(), ["resources"] = new JsonObject() },
-                    ["serverInfo"] = new JsonObject { ["name"] = "beatform", ["version"] = typeof(Mcp).Assembly.GetName().Version?.ToString(3) ?? "0" },
-                    ["instructions"] = "Beatform makes custom levels for a rhythm bullet-hell game. Read the docs tool (topic 'ai-guide') first. " +
+                    ["serverInfo"] = new JsonObject { ["name"] = "sonokinesis", ["version"] = typeof(Mcp).Assembly.GetName().Version?.ToString(3) ?? "0" },
+                    ["instructions"] = "Sonokinesis makes custom levels for a rhythm bullet-hell game. Read the docs tool (topic 'ai-guide') first. " +
                         "Typical loop: new_level or level_info → analyze_song → write objects/scripts (edit_level, write_script, place_script, add_pattern) → validate_level → render_sheet/render_frames to look → play_in_game.",
                 });
             case "ping":
@@ -100,7 +100,7 @@ public static class Mcp
                 {
                     ["resources"] = new JsonArray(Docs.Topics().Select(kv => (JsonNode)new JsonObject
                     {
-                        ["uri"] = "beatform://docs/" + kv.Key,
+                        ["uri"] = "sonokinesis://docs/" + kv.Key,
                         ["name"] = kv.Key,
                         ["mimeType"] = "text/markdown",
                     }).ToArray()),
@@ -108,7 +108,7 @@ public static class Mcp
             case "resources/read":
             {
                 string uri = (string)p["uri"] ?? "";
-                const string prefix = "beatform://docs/";
+                const string prefix = "sonokinesis://docs/";
                 if (!uri.StartsWith(prefix)) return Error(id, -32602, "unknown resource");
                 var topics = Docs.Topics();
                 if (!topics.TryGetValue(uri[prefix.Length..], out var file)) return Error(id, -32602, "unknown resource");

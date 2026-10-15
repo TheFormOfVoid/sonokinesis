@@ -1,6 +1,6 @@
 Copyright 2011 The Montserrat Project Authors (https://github.com/JulietaUla/Montserrat)
 
-Beatform's text shapes use glyph outlines of Montserrat Bold and Montserrat Medium, flattened and
+Sonokinesis's text shapes use glyph outlines of Montserrat Bold and Montserrat Medium, flattened and
 triangulated into shared/Core/TextFontData.cs by tools/bake_font.py.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.

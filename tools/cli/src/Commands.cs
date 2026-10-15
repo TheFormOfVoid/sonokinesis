@@ -4,9 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Beatform.Core;
+using Sonokinesis.Core;
 
-namespace Beatform.Cli;
+namespace Sonokinesis.Cli;
 
 /// <summary>What a command produced: data (shown as JSON) and any pictures.</summary>
 public sealed class CommandResult
@@ -32,7 +32,7 @@ public static class Commands
 
     static Commands()
     {
-        Add("docs", "Read the Beatform documentation. Without a topic, lists the topics.",
+        Add("docs", "Read the Sonokinesis documentation. Without a topic, lists the topics.",
             new[] { "topic" }, Props(("topic", "string", "A topic name from the list, e.g. 'scripting', 'level-format', 'ai-tools'.")),
             a => Docs.Read(Str(a, "topic")));
 
@@ -192,14 +192,14 @@ public static class Commands
                 return Data(new JsonObject { ["bpm"] = lf.Bpm, ["beatMs"] = Math.Round(beat, 4), ["beats"] = list });
             }, "folder");
 
-        Add("play_in_game", "Start the level in the running game (with the Beatform loader) from a song time.",
+        Add("play_in_game", "Start the level in the running game (with the Sonokinesis loader) from a song time.",
             new[] { "folder" }, Props(("folder", "string", "Level folder."), ("from", "number", "Song time to start from (ms, default 0).")),
             a => Data(GameLink.Play(new LevelFolder(Req(a, "folder")).Folder, Num(a, "from") ?? 0)), "folder");
 
         Add("game_status", "Is the game running, is the loader installed, what happened to the last play request.",
             Array.Empty<string>(), Props(), a => Data(GameLink.Status()));
 
-        Add("game_screenshot", "Take a screenshot of the game (needs DevConsole = true in BepInEx/config/dev.beatform.loader.cfg).",
+        Add("game_screenshot", "Take a screenshot of the game (needs DevConsole = true in BepInEx/config/dev.sonokinesis.loader.cfg).",
             Array.Empty<string>(), Props(("out", "string", "PNG path (default: a temp file).")),
             a =>
             {
@@ -209,7 +209,7 @@ public static class Commands
                 return r;
             });
 
-        Add("editor", "Send a command to the running Beatform Editor: ping, state, open {folder}, reload {force}, save, seek {ms}, play {ms}, stop, select {ids}, quit {force}.",
+        Add("editor", "Send a command to the running Sonokinesis Editor: ping, state, open {folder}, reload {force}, save, seek {ms}, play {ms}, stop, select {ids}, quit {force}.",
             new[] { "command" }, Props(("command", "string", "Editor command."), ("args", "object", "Its arguments, e.g. {\"folder\": \"...\"}.")),
             a =>
             {
@@ -220,7 +220,7 @@ public static class Commands
                 return Data(res);
             }, "command");
 
-        Add("editor_screenshot", "Screenshot of the running Beatform Editor, optionally after moving the playhead.",
+        Add("editor_screenshot", "Screenshot of the running Sonokinesis Editor, optionally after moving the playhead.",
             Array.Empty<string>(), Props(("ms", "number", "Move the playhead here first."), ("out", "string", "PNG path (default: a temp file).")),
             a =>
             {
@@ -273,7 +273,7 @@ public static class Commands
 
     private static string TempDir(string sub)
     {
-        var d = Path.Combine(Path.GetTempPath(), "beatform", sub);
+        var d = Path.Combine(Path.GetTempPath(), "sonokinesis", sub);
         Directory.CreateDirectory(d);
         return d;
     }
@@ -410,7 +410,7 @@ public static class Commands
             var data = lf.Load();
             var trial = LevelData.Parse(new JsonObject
             {
-                ["format"] = "beatform.level", ["formatVersion"] = 2,
+                ["format"] = LevelData.FormatName, ["formatVersion"] = 2,
                 ["meta"] = new JsonObject { ["id"] = "trial", ["title"] = "trial", ["audio"] = "x.ogg", ["bpm"] = lf.Bpm },
                 ["objects"] = new JsonArray(new JsonObject
                 {

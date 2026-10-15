@@ -2,8 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
-    <RootNamespace>Beatform.Editor</RootNamespace>
-    <AssemblyName>BeatformEditor</AssemblyName>
+    <RootNamespace>Sonokinesis.Editor</RootNamespace>
+    <AssemblyName>SonokinesisEditor</AssemblyName>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>

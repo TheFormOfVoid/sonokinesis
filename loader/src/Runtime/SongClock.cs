@@ -1,6 +1,6 @@
 using System;
 
-namespace Beatform.Loader.Runtime;
+namespace Sonokinesis.Loader.Runtime;
 
 /// <summary>
 /// A smooth song time for drawing. The game's music position only advances once per audio buffer

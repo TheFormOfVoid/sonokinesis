@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
-using Beatform.Core;
+using Sonokinesis.Core;
 
-namespace Beatform.Editor.Model;
+namespace Sonokinesis.Editor.Model;
 
 /// <summary>A pattern parameter shown in the pattern dialog.</summary>
 public sealed class PatternParam

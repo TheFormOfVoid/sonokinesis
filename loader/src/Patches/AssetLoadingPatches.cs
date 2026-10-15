@@ -1,11 +1,11 @@
-using Beatform.Loader.Runtime;
+using Sonokinesis.Loader.Runtime;
 using HarmonyLib;
 
-namespace Beatform.Loader.Patches;
+namespace Sonokinesis.Loader.Patches;
 
 /// <summary>
 /// Custom song slots have no asset bundle: their MetaSong and AudioClip are supplied by
-/// Beatform before the level starts, so the game's bundle loading is skipped for them.
+/// Sonokinesis before the level starts, so the game's bundle loading is skipped for them.
 /// </summary>
 [HarmonyPatch]
 internal static class AssetLoadingPatches

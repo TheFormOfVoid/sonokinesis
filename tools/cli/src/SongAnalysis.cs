@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
-using Beatform.Audio;
+using Sonokinesis.Audio;
 
-namespace Beatform.Cli;
+namespace Sonokinesis.Cli;
 
 /// <summary>
 /// Listens to a song so levels can be built around it: tempo, where the beats fall, how loud each bar

@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
-    <RootNamespace>Beatform.CoreTests</RootNamespace>
+    <RootNamespace>Sonokinesis.CoreTests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <!-- The engine-free core is compiled straight from shared/Core. -->

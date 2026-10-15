@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
-using Beatform.Core;
+using Sonokinesis.Core;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
 
-namespace Beatform.Loader.Runtime;
+namespace Sonokinesis.Loader.Runtime;
 
 /// <summary>
-/// Draws a level with Beatform's own geometry: a background quad behind everything, all objects
+/// Draws a level with Sonokinesis's own geometry: a background quad behind everything, all objects
 /// in one dynamic mesh placed just in front of the players (where the game draws its hazards), and
 /// full-screen flashes over them. Nothing here uses the game's art.
 /// </summary>
@@ -32,12 +32,12 @@ internal sealed class HazardRenderer
 
     public HazardRenderer(Transform host)
     {
-        background = new DynamicMesh("Beatform Background", host);
-        backdrop = new DynamicMesh("Beatform Backdrop", host);
-        hazards = new DynamicMesh("Beatform Hazards", host);
+        background = new DynamicMesh("Sonokinesis Background", host);
+        backdrop = new DynamicMesh("Sonokinesis Backdrop", host);
+        hazards = new DynamicMesh("Sonokinesis Hazards", host);
         // Drawn after the game's own sprites, so they cover the players.
-        front = new DynamicMesh("Beatform Front", host, 3100);
-        overlay = new DynamicMesh("Beatform Overlay", host, 3101);
+        front = new DynamicMesh("Sonokinesis Front", host, 3100);
+        overlay = new DynamicMesh("Sonokinesis Overlay", host, 3101);
         SetVisible(false);
     }
 

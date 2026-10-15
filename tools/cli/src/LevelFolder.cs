@@ -7,9 +7,9 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Beatform.Core;
+using Sonokinesis.Core;
 
-namespace Beatform.Cli;
+namespace Sonokinesis.Cli;
 
 /// <summary>A mistake in how the tool was used: reported to the user without a stack trace.</summary>
 public sealed class CliError : Exception
@@ -72,7 +72,7 @@ public sealed class LevelFolder
         if (string.IsNullOrEmpty(audio)) return null;
         var path = Path.Combine(Folder, audio);
         if (!File.Exists(path)) return null;
-        try { return Beatform.Audio.AudioDecoder.Decode(path).LengthMs - Num(Meta["offsetMs"], 0); }
+        try { return Sonokinesis.Audio.AudioDecoder.Decode(path).LengthMs - Num(Meta["offsetMs"], 0); }
         catch { return null; }
     }
 
@@ -149,7 +149,7 @@ public sealed class LevelFolder
         File.Copy(song, Path.Combine(folder, "song" + ext), true);
         var root = new JsonObject
         {
-            ["format"] = "beatform.level",
+            ["format"] = LevelData.FormatName,
             ["formatVersion"] = LevelData.SupportedFormatVersion,
             ["meta"] = new JsonObject
             {
@@ -253,7 +253,7 @@ public sealed class LevelFolder
         var copied = EnsureScript(name);
         var type = new ScriptLibrary(LevelScriptSources()).Get(name) ?? throw new CliError($"no script named '{name}'");
         if (type.CompileError != null) throw new CliError("the script has an error: " + type.CompileError);
-        if (type.Kind == ScriptKind.Pattern) throw new CliError($"'{name}' is a pattern: add it with add_pattern / `beatform pattern`");
+        if (type.Kind == ScriptKind.Pattern) throw new CliError($"'{name}' is a pattern: add it with add_pattern / `sonokinesis pattern`");
         double len = beats ?? (type.LengthBeats > 0 ? type.LengthBeats : 8);
         double stop = end ?? at + len * BeatMs;
         if (stop <= at) throw new CliError("end must be after the start");
@@ -287,7 +287,7 @@ public sealed class LevelFolder
     public JsonObject AddPattern(string name, double hit, double x, double y, JsonObject prms, List<string> logs)
     {
         var type = FindScript(name, out _) ?? throw new CliError($"no pattern named '{name}' in the level or the library");
-        if (type.Kind != ScriptKind.Pattern) throw new CliError($"'{name}' is not a pattern (it runs live): add it with place_script / `beatform place`");
+        if (type.Kind != ScriptKind.Pattern) throw new CliError($"'{name}' is not a pattern (it runs live): add it with place_script / `sonokinesis place`");
         var values = new Dictionary<string, object>();
         if (prms != null)
             foreach (var kv in prms)

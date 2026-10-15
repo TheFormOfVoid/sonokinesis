@@ -1,11 +1,11 @@
 {
-  "format": "beatform.level",
+  "format": "sonokinesis.level",
   "formatVersion": 1,
   "meta": {
     "id": "spec-vectors",
     "title": "Spec vectors",
     "artist": "none",
-    "author": "Beatform",
+    "author": "Sonokinesis",
     "audio": "silence.wav",
     "bpm": 120,
     "lengthMs": 8000

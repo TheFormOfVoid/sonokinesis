@@ -3,8 +3,8 @@ config_version=5
 
 [application]
 
-config/name="Beatform Editor"
-config/description="Level editor for Beatform custom levels"
+config/name="Sonokinesis Editor"
+config/description="Level editor for Sonokinesis custom levels"
 run/main_scene="res://Main.tscn"
 config/icon="res://icon.svg"
 config/features=PackedStringArray("4.7", "C#", "GL Compatibility")
@@ -20,7 +20,7 @@ window/subwindows/embed_subwindows=true
 
 [dotnet]
 
-project/assembly_name="BeatformEditor"
+project/assembly_name="SonokinesisEditor"
 
 [gui]
 

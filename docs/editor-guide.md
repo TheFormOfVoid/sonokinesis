@@ -1,4 +1,4 @@
-# Beatform Editor guide
+# Sonokinesis Editor guide
 
 The editor makes levels: you lay hazards out on a stage over the song's timeline, preview them with
 the music, and test them in the game. Everything the game can do is reachable from here, including
@@ -148,7 +148,7 @@ change it.
   scripts open read-only: **Copy into level** makes the level's own copy.
 - The inspector shows a scripted object's settings (from its `meta.params`), its errors, and where it
   spawns. Drag its gold marker on the stage to move the spawn point.
-- Scripts can also be changed outside the editor (in any text editor, or by an AI with the `beatform`
+- Scripts can also be changed outside the editor (in any text editor, or by an AI with the `sonokinesis`
   tool); the editor reloads them when the file changes.
 
 The full reference is the [scripting guide](scripting.md).
@@ -156,7 +156,7 @@ The full reference is the [scripting guide](scripting.md).
 ## Testing in the game
 
 **Test in game** (F5) starts the level in the running game from the playhead (the game needs the
-Beatform loader, installed by the Beatform installer). It saves the level first (the game plays the saved
+Sonokinesis loader, installed by the Sonokinesis installer). It saves the level first (the game plays the saved
 files), and the game opens it as soon as it is on a menu.
 
 ## Sharing

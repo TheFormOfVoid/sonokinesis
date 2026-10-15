@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Beatform.Loader.Runtime;
+namespace Sonokinesis.Loader.Runtime;
 
 /// <summary>Read-mostly access to live game state, with every call guarded against missing objects.</summary>
 internal static class GameBridge
@@ -245,7 +245,7 @@ internal static class GameBridge
 
     /// <summary>
     /// Depth of the front-most player sprite. The game assigns sprite depth in draw order, and its own
-    /// hazards come right after the players, so Beatform draws just in front of this value.
+    /// hazards come right after the players, so Sonokinesis draws just in front of this value.
     /// </summary>
     public static float FrontHeroZ() => HeroZRange().Front;
 

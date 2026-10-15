@@ -1,6 +1,6 @@
 # Scripting guide
 
-Beatform levels can carry their own code. Anything the built-in tools don't do, you can write: a new
+Sonokinesis levels can carry their own code. Anything the built-in tools don't do, you can write: a new
 attack, a camera effect, a screen effect, a way of moving the players, or a pattern that lays out
 objects for you. Scripts are JavaScript files in the level's `scripts/` folder, and they run in the
 game exactly as they run in the editor preview.
@@ -114,7 +114,7 @@ Inside these functions, `this` is the instance. `this.age` is the time since the
 created, in ms. You can store anything on `this`.
 
 **Determinism.** A level must play the same way every time the music is at the same point, because
-the game rewinds to checkpoints and the editor scrubs back and forth. Beatform does this for you:
+the game rewinds to checkpoints and the editor scrubs back and forth. Sonokinesis does this for you:
 going back in time restarts the world from the object's start and replays the steps. That only works
 because scripts cannot see the clock (`Date` does not exist) and random numbers come from
 `random()`, which repeats within a play. Don't keep state outside `this` (in global variables) that
@@ -370,7 +370,7 @@ can't (chasing, bouncing, spawning, camera and screen effects).
   recursion is limited to 200 levels, memory to 256 MB. The script is reported and stops; the rest of
   the level keeps going.
 - Errors show in the code editor's console (with the line highlighted), in the inspector of the
-  object, in `beatform validate-level`, and in the game's BepInEx log. An instance that throws stops.
+  object, in `sonokinesis validate-level`, and in the game's BepInEx log. An instance that throws stops.
 - At most 50 000 shapes per frame and 4000 instances per object.
 - Keep `draw()` light: it runs every frame. Do the work in `update()`.
 - Script names (file names) use letters, digits, `_` and `-`.

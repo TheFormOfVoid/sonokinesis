@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 
-namespace Beatform.Core;
+namespace Sonokinesis.Core;
 
 /// <summary>
-/// Beatform's text font: Montserrat Bold and Montserrat Medium, with the glyph outlines filled ahead of
+/// Sonokinesis's text font: Montserrat Bold and Montserrat Medium, with the glyph outlines filled ahead of
 /// time by tools/bake_font.py (TextFontData). A text shape fills its object's box like every other
 /// shape: capital letters span the box height (baseline at the bottom edge, descenders below it) and the
 /// ink of the line is squeezed to the box width, so a box <see cref="Width"/> times wider than tall

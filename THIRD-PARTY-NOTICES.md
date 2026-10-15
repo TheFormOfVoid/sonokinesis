@@ -1,6 +1,6 @@
 # Third-party software
 
-Beatform ships or builds on these projects. Each keeps its own license.
+Sonokinesis ships or builds on these projects. Each keeps its own license.
 
 | Project | Used for | License | Source |
 |---|---|---|---|
@@ -17,5 +17,5 @@ Beatform ships or builds on these projects. Each keeps its own license.
 BepInEx is distributed unmodified, as published at builds.bepinex.dev; its source is available at
 the link above.
 
-Just Shapes & Beats is a trademark of Berzerk Studio. Beatform is an unofficial fan project and is not
+Just Shapes & Beats is a trademark of Berzerk Studio. Sonokinesis is an unofficial fan project and is not
 affiliated with or endorsed by Berzerk Studio.

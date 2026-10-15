@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text.Json;
 
-namespace Beatform.Core;
+namespace Sonokinesis.Core;
 
 public struct Rgba
 {
@@ -234,13 +234,17 @@ public sealed class LevelData
             ScriptSources[System.IO.Path.GetFileNameWithoutExtension(f)] = System.IO.File.ReadAllText(f);
     }
 
+    /// <summary>The "format" value of a level: "sonokinesis.level" ("beatform.level" from before the rename).</summary>
+    public const string FormatName = "sonokinesis.level";
+    public static bool IsFormatName(string s) => s == FormatName || s == "beatform.level";
+
     public static LevelData Parse(string json)
     {
         using var doc = JsonDocument.Parse(json, new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
         var root = doc.RootElement;
         var level = new LevelData();
 
-        if (Str(root, "format") != "beatform.level") throw new FormatException("not a Beatform level (format field)");
+        if (!IsFormatName(Str(root, "format"))) throw new FormatException("not a Sonokinesis level (format field)");
         level.FormatVersion = (int)Num(root, "formatVersion", 1);
         if (level.FormatVersion > SupportedFormatVersion)
             throw new FormatException($"level needs format version {level.FormatVersion}; this loader supports up to {SupportedFormatVersion}");

@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Beatform.Core;
+using Sonokinesis.Core;
 
 /// <summary>Tests of the JavaScript attack and pattern scripts (shared/Scripting).</summary>
 internal static class ScriptTests
 {
     private static LevelData Level(string objects, Dictionary<string, string> scripts, string events = "")
     {
-        var level = LevelData.Parse("{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\",\"bpm\":120},\"objects\":["
+        var level = LevelData.Parse("{\"format\":\"sonokinesis.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\",\"bpm\":120},\"objects\":["
             + objects + "],\"events\":[" + events + "]}");
         foreach (var kv in scripts) level.ScriptSources[kv.Key] = kv.Value;
         return level;
@@ -209,7 +209,7 @@ function build(p) {
             check(err == null && built.Count > 0, $"pattern {t.Name} builds ({err?.ToString() ?? built.Count + " objects"})");
             foreach (var json in built)
             {
-                try { LevelData.Parse("{\"format\":\"beatform.level\",\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"objects\":[" + json + "]}"); }
+                try { LevelData.Parse("{\"format\":\"sonokinesis.level\",\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"objects\":[" + json + "]}"); }
                 catch (Exception ex) { check(false, $"pattern {t.Name} made an object the loader cannot read: {ex.Message}"); break; }
             }
         }

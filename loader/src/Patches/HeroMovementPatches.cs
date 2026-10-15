@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using HarmonyLib;
 
-namespace Beatform.Loader.Patches;
+namespace Sonokinesis.Loader.Patches;
 
 /// <summary>
 /// playerSpeed events: the players keep their normal velocity (so the game still stretches, turns and

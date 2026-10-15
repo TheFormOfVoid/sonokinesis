@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Beatform.Core;
-using Beatform.Editor.Model;
+using Sonokinesis.Core;
+using Sonokinesis.Editor.Model;
 
-namespace Beatform.Editor;
+namespace Sonokinesis.Editor;
 
 /// <summary>
 /// The shared state of the editor: the open document, selection, playhead, snapping, undo history

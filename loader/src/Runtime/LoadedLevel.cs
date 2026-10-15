@@ -1,7 +1,7 @@
-using Beatform.Core;
+using Sonokinesis.Core;
 using UnityEngine;
 
-namespace Beatform.Loader.Runtime;
+namespace Sonokinesis.Loader.Runtime;
 
 /// <summary>A parsed level with its decoded audio, ready to play.</summary>
 internal sealed class LoadedLevel

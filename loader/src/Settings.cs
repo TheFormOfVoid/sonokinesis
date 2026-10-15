@@ -3,9 +3,9 @@ using BepInEx;
 using BepInEx.Configuration;
 using UnityEngine;
 
-namespace Beatform.Loader;
+namespace Sonokinesis.Loader;
 
-/// <summary>User-facing settings, stored in BepInEx/config/dev.beatform.loader.cfg.</summary>
+/// <summary>User-facing settings, stored in BepInEx/config/dev.sonokinesis.loader.cfg.</summary>
 internal static class Settings
 {
     private static ConfigEntry<string> levelsFolder;
@@ -36,6 +36,6 @@ internal static class Settings
         blockAllSaves = config.Bind("Development", "BlockAllSaves", false,
             "Never write the save file, even outside custom levels. For testing the loader.");
         devConsole = config.Bind("Development", "DevConsole", false,
-            "Enable the file-driven development console (BepInEx/beatform/cmd.txt).");
+            "Enable the file-driven development console (BepInEx/sonokinesis/cmd.txt).");
     }
 }

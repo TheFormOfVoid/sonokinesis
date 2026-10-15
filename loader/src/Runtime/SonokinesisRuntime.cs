@@ -1,19 +1,19 @@
 using System;
 using System.Collections.Generic;
-using Beatform.Core;
-using Beatform.Loader.UI;
+using Sonokinesis.Core;
+using Sonokinesis.Loader.UI;
 using Il2CppInterop.Runtime.Attributes;
 using UnityEngine;
 
-namespace Beatform.Loader.Runtime;
+namespace Sonokinesis.Loader.Runtime;
 
 /// <summary>
 /// The loader's per-frame driver: runs the level list and launcher, follows the active custom
 /// session, and while the custom level plays draws it and hands hits to the game.
 /// </summary>
-public class BeatformRuntime : MonoBehaviour
+public class SonokinesisRuntime : MonoBehaviour
 {
-    public BeatformRuntime(IntPtr ptr) : base(ptr) { }
+    public SonokinesisRuntime(IntPtr ptr) : base(ptr) { }
 
     private HazardRenderer renderer;
     private Launcher launcher;
@@ -29,7 +29,7 @@ public class BeatformRuntime : MonoBehaviour
     private double nextShakeKick;
     private readonly System.Random shakeRandom = new(1234);
 
-    internal static BeatformRuntime Instance { get; private set; }
+    internal static SonokinesisRuntime Instance { get; private set; }
     /// <summary>The song time drawn in the last frame (for the dev console).</summary>
     internal double LastSongTime => lastSongTime;
     [HideFromIl2Cpp] internal Launcher Launcher => launcher;

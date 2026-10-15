@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Beatform.Core;
+namespace Sonokinesis.Core;
 
 /// <summary>Fills a simple polygon (any winding, convex or not) by ear clipping, for scripts' shape().</summary>
 internal static class PolygonFill

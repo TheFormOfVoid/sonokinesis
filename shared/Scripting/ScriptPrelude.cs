@@ -1,4 +1,4 @@
-namespace Beatform.Core;
+namespace Sonokinesis.Core;
 
 /// <summary>
 /// The JavaScript side of the scripting API, run in every script engine before the script itself. It

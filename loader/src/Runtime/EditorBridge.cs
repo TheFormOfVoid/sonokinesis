@@ -2,11 +2,11 @@ using System;
 using System.IO;
 using System.Text.Json;
 
-namespace Beatform.Loader.Runtime;
+namespace Sonokinesis.Loader.Runtime;
 
 /// <summary>
-/// Lets the Beatform editor start a level in the running game ("test in game"). The editor writes
-/// BepInEx/beatform/bridge/play.json; the loader brings the game to the main menu if needed,
+/// Lets the Sonokinesis editor start a level in the running game ("test in game"). The editor writes
+/// BepInEx/sonokinesis/bridge/play.json; the loader brings the game to the main menu if needed,
 /// launches the level (optionally from a song time) and reports progress in status.json.
 /// </summary>
 internal static class EditorBridge

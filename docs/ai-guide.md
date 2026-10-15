@@ -1,7 +1,7 @@
 # Making a level with an AI
 
-This guide is for an AI agent (or a person working the same way) building a Beatform level with the
-`beatform` tool. It covers the workflow, how the format works in practice, what makes a level good to
+This guide is for an AI agent (or a person working the same way) building a Sonokinesis level with the
+`sonokinesis` tool. It covers the workflow, how the format works in practice, what makes a level good to
 play, and how to check your work. Read [level-format](../spec/level-format.md) for every field and
 [scripting](scripting.md) for custom attacks; [ai-tools](ai-tools.md) lists the commands.
 
@@ -23,7 +23,7 @@ play, and how to check your work. Read [level-format](../spec/level-format.md) f
    is the real test: ask them what felt unfair, late, early, too easy or too busy, and change that.
 7. Repeat for the next section. Keep `level_info` handy to see what is already there.
 
-If the Beatform Editor is open on the same folder, it reloads whenever you change `level.json` or a
+If the Sonokinesis Editor is open on the same folder, it reloads whenever you change `level.json` or a
 script (as long as it has no unsaved edits of its own), so the person can watch the level grow.
 
 ## The format in practice

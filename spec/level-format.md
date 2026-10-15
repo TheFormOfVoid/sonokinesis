@@ -1,6 +1,6 @@
-# Beatform level format, version 2
+# Sonokinesis level format, version 2
 
-A Beatform level is a folder. The editor writes it, the loader reads it, and both must draw and
+A Sonokinesis level is a folder. The editor writes it, the loader reads it, and both must draw and
 collide it identically, so every rule that affects what the player sees or touches is defined here.
 
 ```
@@ -26,7 +26,7 @@ A level may also be shipped as a `.zip` of that folder; the loader treats the zi
 
 ```json
 {
-  "format": "beatform.level",
+  "format": "sonokinesis.level",
   "formatVersion": 2,
   "meta": { ... },
   "theme": { ... },
@@ -78,7 +78,7 @@ Colors are `#rrggbb` or `#rrggbbaa`.
 ### checkpoints
 
 Sorted song times in ms. The first entry must be `0`. When every player dies the game rewinds the
-music to the last checkpoint reached; Beatform's drawing and collision are pure functions of song
+music to the last checkpoint reached; Sonokinesis's drawing and collision are pure functions of song
 time, so they rewind with it automatically.
 
 The game finishes a level when its last checkpoint is completed, so the loader adds one more

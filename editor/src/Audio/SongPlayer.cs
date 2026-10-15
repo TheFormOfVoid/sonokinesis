@@ -1,10 +1,10 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using Beatform.Audio;
+using Sonokinesis.Audio;
 using Godot;
 
-namespace Beatform.Editor.Audio;
+namespace Sonokinesis.Editor.Audio;
 
 /// <summary>
 /// Plays the level's song and reports song time (ms, with the level's audio offset applied) in a way

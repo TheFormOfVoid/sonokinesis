@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 
-namespace Beatform.Cli;
+namespace Sonokinesis.Cli;
 
 /// <summary>The documentation as topics: docs/*.md plus the level format specification.</summary>
 public static class Docs
@@ -30,10 +30,10 @@ public static class Docs
     public static CommandResult Read(string topic)
     {
         var topics = Topics();
-        if (topics.Count == 0) throw new CliError("the documentation was not found (set BEATFORM_DOCS to the docs folder)");
+        if (topics.Count == 0) throw new CliError("the documentation was not found (set SONOKINESIS_DOCS to the docs folder)");
         if (string.IsNullOrEmpty(topic))
         {
-            var sb = new StringBuilder("Beatform documentation. Read a topic with docs <topic>:\n\n");
+            var sb = new StringBuilder("Sonokinesis documentation. Read a topic with docs <topic>:\n\n");
             foreach (var kv in topics) sb.Append($"- {kv.Key}: {Title(kv.Value)}\n");
             sb.Append("\nStart with 'ai-guide' (how to build a level step by step), then 'level-format' and 'scripting'.\n");
             return new CommandResult { Text = sb.ToString() };

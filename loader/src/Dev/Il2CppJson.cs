@@ -3,7 +3,7 @@ using System.Text;
 using Il2CppInterop.Runtime.InteropTypes;
 using Il2CppSystem.Collections;
 
-namespace Beatform.Loader.Dev;
+namespace Sonokinesis.Loader.Dev;
 
 /// <summary>Serializes Il2Cpp Hashtable / ArrayList / boxed primitive trees to JSON for inspection.</summary>
 public static class Il2CppJson

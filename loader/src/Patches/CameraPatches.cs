@@ -1,6 +1,6 @@
 using HarmonyLib;
 
-namespace Beatform.Loader.Patches;
+namespace Sonokinesis.Loader.Patches;
 
 /// <summary>The level's camera shift (sway, zoom point) goes on after the game has placed its camera.</summary>
 [HarmonyPatch]

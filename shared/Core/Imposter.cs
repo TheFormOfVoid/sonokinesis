@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 
-namespace Beatform.Core;
+namespace Sonokinesis.Core;
 
 /// <summary>A player as the level sees it: where it is, its colour, and whether it can be chased.</summary>
 public struct PlayerInfo

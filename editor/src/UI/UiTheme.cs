@@ -1,6 +1,6 @@
 using Godot;
 
-namespace Beatform.Editor.UI;
+namespace Sonokinesis.Editor.UI;
 
 /// <summary>Colors and the Godot theme for the editor. Dark ink panels with pink and cyan accents.</summary>
 public static class UiTheme

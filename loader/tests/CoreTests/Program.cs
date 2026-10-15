@@ -6,7 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using Beatform.Core;
+using Sonokinesis.Core;
 
 internal static class Program
 {
@@ -110,7 +110,7 @@ internal static class Program
         var unknown = ShapeGeometry.For(new ShapeDef { Type = ShapeType.Text, Text = "H一" });
         Check(unknown.Indices.Length == ShapeGeometry.For(new ShapeDef { Type = ShapeType.Text, Text = "H" }).Indices.Length, "characters without a glyph draw nothing");
         Check(ShapeGeometry.For(new ShapeDef { Type = ShapeType.Text, Text = "  " }).Indices.Length == 0, "spaces draw nothing");
-        var parsed = LevelData.Parse("{\"format\":\"beatform.level\",\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},"
+        var parsed = LevelData.Parse("{\"format\":\"sonokinesis.level\",\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},"
             + "\"objects\":[{\"shape\":{\"type\":\"text\",\"text\":\"OK\"}},{\"shape\":{\"type\":\"text\",\"text\":\"OK\",\"bold\":false}}]}");
         Check(parsed.Objects[0].Shape.Type == ShapeType.Text && parsed.Objects[0].Shape.Text == "OK", "text shape parses");
         Check(parsed.Objects[0].Shape.Bold && !parsed.Objects[1].Shape.Bold, "text is bold unless it says otherwise");
@@ -173,7 +173,7 @@ internal static class Program
     }
 
     private static LevelData Mini(string objects) => LevelData.Parse(
-        "{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"objects\":[" + objects + "]}");
+        "{\"format\":\"sonokinesis.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"objects\":[" + objects + "]}");
 
     private static void ImposterTests()
     {
@@ -277,7 +277,7 @@ internal static class Program
 
         // Dashes on the beat: 120 BPM, so beats at 0, 500, 1000... (song time, whatever the audio offset);
         // active at 300, a dash every 2 beats starting on the first beat after activation.
-        var beatLevel = LevelData.Parse("{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\",\"bpm\":120,\"offsetMs\":100},"
+        var beatLevel = LevelData.Parse("{\"format\":\"sonokinesis.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\",\"bpm\":120,\"offsetMs\":100},"
             + "\"objects\":[{\"id\":\"b\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"warn\":300,\"end\":4000,"
             + "\"imposter\":{\"mode\":\"straight\",\"angle\":180,\"speed\":100,\"dashSpeed\":800,\"dashTime\":450,\"dashEvery\":123,\"dashBeats\":2},"
             + "\"tracks\":{\"x\":[[0,300]],\"w\":[[0,24]],\"h\":[[0,24]]}}]}");
@@ -335,7 +335,7 @@ internal static class Program
         Check(hiddenItems.All(it => !it.Object.Hidden), "hidden objects are not drawn");
 
         // Zoom on a point or a player, flashes that hold, imposters that arrive on time.
-        var zl = LevelData.Parse("{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"events\":["
+        var zl = LevelData.Parse("{\"format\":\"sonokinesis.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"events\":["
             + "{\"t\":1000,\"type\":\"zoom\",\"scale\":2,\"x\":100,\"y\":-50,\"duration\":1000},"
             + "{\"t\":3000,\"type\":\"zoom\",\"scale\":1.5,\"focus\":\"@player\"},"
             + "{\"t\":5000,\"type\":\"flash\",\"color\":\"#000000\",\"opacity\":1,\"hold\":2000,\"duration\":500}],"
@@ -356,7 +356,7 @@ internal static class Program
         Check(fl.Count == 1 && Math.Abs(fl[0].A - 1) < 1e-6, "a flash holds full opacity");
         zev.Flashes(7250, fl);
         Check(fl.Count == 1 && Math.Abs(fl[0].A - 0.5) < 1e-6, "then fades over its duration");
-        var walker = LevelData.Parse("{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"objects\":[{\"id\":\"w\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":9000,"
+        var walker = LevelData.Parse("{\"format\":\"sonokinesis.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"objects\":[{\"id\":\"w\",\"shape\":{\"type\":\"rect\"},\"start\":0,\"end\":9000,"
             + "\"imposter\":{\"mode\":\"straight\",\"angle\":0,\"speed\":60,\"dashSpeed\":900,\"firstDash\":99999,\"stopAt\":0,\"stopFor\":1000,\"stopDash\":false},\"tracks\":{\"x\":[[0,0]]}}]}");
         var wev = new LevelEvaluator(walker);
         Near(wev.SimAt(walker.Objects[0], 900).X, 0, "it stands during its stop", 1e-6);
@@ -372,7 +372,7 @@ internal static class Program
         Near(asim.X, -100, "and stays on them", 0.5);
 
         // Sway and sound events.
-        var ev2 = LevelData.Parse("{\"format\":\"beatform.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"events\":["
+        var ev2 = LevelData.Parse("{\"format\":\"sonokinesis.level\",\"formatVersion\":2,\"meta\":{\"id\":\"t\",\"audio\":\"a.ogg\"},\"events\":["
             + "{\"t\":0,\"type\":\"sway\",\"rotation\":1,\"x\":5,\"period\":2000,\"periodX\":2400},"
             + "{\"t\":4000,\"type\":\"sway\",\"rotation\":0,\"duration\":1000},"
             + "{\"t\":100,\"type\":\"sound\",\"sound\":\"playerDeath\",\"volume\":0.5},"

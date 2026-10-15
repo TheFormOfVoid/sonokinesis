@@ -2,7 +2,7 @@ using System.Linq;
 using System.Text;
 using Il2CppSystem.Collections.Generic;
 
-namespace Beatform.Loader.Dev;
+namespace Sonokinesis.Loader.Dev;
 
 /// <summary>Game-specific dev-console commands used while reverse engineering the level flow.</summary>
 public static class GameCommands
@@ -29,7 +29,7 @@ public static class GameCommands
         {
             clockFrames--;
             var music = Runtime.GameBridge.MusicPositionMs(Runtime.GameBridge.LevelLogic());
-            clockSamples.Add($"{UnityEngine.Time.unscaledTime * 1000:0.0} {music:0.0} {Runtime.BeatformRuntime.Instance.LastSongTime:0.0}");
+            clockSamples.Add($"{UnityEngine.Time.unscaledTime * 1000:0.0} {music:0.0} {Runtime.SonokinesisRuntime.Instance.LastSongTime:0.0}");
         }
         if (camFrames <= 0) return;
         camFrames--;
@@ -60,7 +60,7 @@ public static class GameCommands
         {
             float secs = a.Length > 0 ? float.Parse(a[0]) : 40;
             var clip = Runtime.CustomSongRegistry.MakeClickTrack(secs, 120);
-            var model = Runtime.CustomSongRegistry.Create("clicktest", "Click Test", "Beatform", clip, new[] { 0f, 15000f, 30000f });
+            var model = Runtime.CustomSongRegistry.Create("clicktest", "Click Test", "Sonokinesis", clip, new[] { 0f, 15000f, 30000f });
             var list = new List<ModelStoryCheckpoint>();
             list.Add(model);
             MainGame.instance.StartPractice(list, ModelGameDifficultyEnum.NORMAL);
@@ -183,14 +183,14 @@ public static class GameCommands
 
         DevConsole.Commands["menu"] = a =>
         {
-            var m = Runtime.BeatformRuntime.Instance.Menu;
+            var m = Runtime.SonokinesisRuntime.Instance.Menu;
             if (a.Length > 0 && a[0] == "off") m.Hide(); else m.Show();
             return "menu open " + m.Open;
         };
 
         DevConsole.Commands["menuplay"] = a =>
         {
-            var m = Runtime.BeatformRuntime.Instance.Menu;
+            var m = Runtime.SonokinesisRuntime.Instance.Menu;
             if (!m.Open) m.Show();
             if (Runtime.LevelLibrary.Entries == null) return "still scanning, try again";
             m.PlayIndex(int.Parse(a[0]), a.Length > 1 && a[1] == "hard");
@@ -256,14 +256,14 @@ public static class GameCommands
             var sb = new StringBuilder();
             foreach (var mf in UnityEngine.Object.FindObjectsOfType<UnityEngine.MeshFilter>())
             {
-                if (!mf.gameObject.name.StartsWith("Beatform")) continue;
+                if (!mf.gameObject.name.StartsWith("Sonokinesis")) continue;
                 var m = mf.sharedMesh;
                 sb.AppendLine($"{mf.gameObject.name}: verts={m.vertexCount} indexFormat={m.indexFormat} subMeshes={m.subMeshCount} indices={m.GetIndexCount(0)} active={mf.gameObject.activeInHierarchy}");
             }
             return sb.ToString();
         };
 
-        DevConsole.Commands["profile"] = _ => Runtime.BeatformRuntime.Profile.Report();
+        DevConsole.Commands["profile"] = _ => Runtime.SonokinesisRuntime.Profile.Report();
 
         DevConsole.Commands["sandbox"] = _ =>
         {
@@ -372,8 +372,8 @@ public static class GameCommands
 
         DevConsole.Commands["coverhide"] = a =>
         {
-            Runtime.BeatformRuntime.HideCoveredHeroes = a.Length == 0 || a[0] != "off";
-            return "hide covered players " + Runtime.BeatformRuntime.HideCoveredHeroes;
+            Runtime.SonokinesisRuntime.HideCoveredHeroes = a.Length == 0 || a[0] != "off";
+            return "hide covered players " + Runtime.SonokinesisRuntime.HideCoveredHeroes;
         };
 
         DevConsole.Commands["playerspeed"] = a =>
@@ -381,10 +381,10 @@ public static class GameCommands
             // playerspeed <speed> [turn] | playerspeed level
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             bool level = a.Length == 0 || a[0] == "level";
-            Runtime.BeatformRuntime.PlayerSpeedOverride = level ? null : float.Parse(a[0], inv);
-            Runtime.BeatformRuntime.PlayerTurnOverride = level ? null : a.Length > 1 ? float.Parse(a[1], inv) : 1;
+            Runtime.SonokinesisRuntime.PlayerSpeedOverride = level ? null : float.Parse(a[0], inv);
+            Runtime.SonokinesisRuntime.PlayerTurnOverride = level ? null : a.Length > 1 ? float.Parse(a[1], inv) : 1;
             return level ? "player speed from the level"
-                : $"player speed {Runtime.BeatformRuntime.PlayerSpeedOverride} turn {Runtime.BeatformRuntime.PlayerTurnOverride}";
+                : $"player speed {Runtime.SonokinesisRuntime.PlayerSpeedOverride} turn {Runtime.SonokinesisRuntime.PlayerTurnOverride}";
         };
 
         DevConsole.Commands["hit"] = a =>
@@ -442,7 +442,7 @@ public static class GameCommands
             float x = float.Parse(a[0]), y = float.Parse(a[1]), r = float.Parse(a[2]);
             var layers = CameraFlashContainers.instance;
             var mc = new MovieClip();
-            mc.name = "beatformGfxTest";
+            mc.name = "sonokinesisGfxTest";
             layers.enemyVisual.addChild(mc);
             mc.graphics.beginFill(unchecked((int)0xFF2A6D));
             mc.graphics.drawCircle(x, y, r);
@@ -478,7 +478,7 @@ public static class GameCommands
         {
             // quadtest <x> <y> <z> <size>: place a solid quad in Unity world space.
             float x = float.Parse(a[0]), y = float.Parse(a[1]), z = float.Parse(a[2]), s = float.Parse(a[3]);
-            var go = new UnityEngine.GameObject("beatformQuadTest");
+            var go = new UnityEngine.GameObject("sonokinesisQuadTest");
             var mf = go.AddComponent<UnityEngine.MeshFilter>();
             var mr = go.AddComponent<UnityEngine.MeshRenderer>();
             var mesh = new UnityEngine.Mesh();

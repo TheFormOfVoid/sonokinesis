@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace Beatform.Cli;
+namespace Sonokinesis.Cli;
 
 /// <summary>Where the tool finds the script library and the documentation.</summary>
 public static class Paths
@@ -32,7 +32,7 @@ public static class Paths
     }
 
     /// <summary>The built-in script library (library/ with attacks, effects, patterns), or null.</summary>
-    public static string Library => library ??= Find("BEATFORM_LIBRARY", r =>
+    public static string Library => library ??= Find("SONOKINESIS_LIBRARY", r =>
     {
         var p = Path.Combine(r, "library");
         return Directory.Exists(Path.Combine(p, "patterns")) ? p : null;
@@ -40,7 +40,7 @@ public static class Paths
     private static string library;
 
     /// <summary>The documentation folder (docs/), or null.</summary>
-    public static string Docs => docs ??= Find("BEATFORM_DOCS", r =>
+    public static string Docs => docs ??= Find("SONOKINESIS_DOCS", r =>
     {
         var p = Path.Combine(r, "docs");
         return File.Exists(Path.Combine(p, "scripting.md")) ? p : null;

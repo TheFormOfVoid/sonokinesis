@@ -1,10 +1,10 @@
-# The beatform tool (command line and MCP)
+# The sonokinesis tool (command line and MCP)
 
-`beatform` makes and checks levels without the editor's window. It uses the same level, script and
+`sonokinesis` makes and checks levels without the editor's window. It uses the same level, script and
 audio code as the game loader and the editor, so what it validates and draws is what the game plays.
-Every command is also an **MCP tool**: run `beatform mcp` and an AI client (Claude Code, Claude
+Every command is also an **MCP tool**: run `sonokinesis mcp` and an AI client (Claude Code, Claude
 Desktop, or any MCP client) can build levels with it. The companion repository
-[beatform-ai](https://github.com/TheFormOfVoid/beatform-ai) has ready-made setup and instructions for
+[sonokinesis-ai](https://github.com/TheFormOfVoid/sonokinesis-ai) has ready-made setup and instructions for
 AI agents.
 
 - [Getting it](#getting-it)
@@ -17,31 +17,32 @@ AI agents.
 
 ## Getting it
 
-The release zip has `tools/beatform.exe` next to the editor (with `library/` and `docs/` beside it).
+The release zip has `tools/sonokinesis.exe` next to the editor (with `library/` and `docs/` beside it),
+and `tools/sono.cmd`, a short name for it: `sono new-level ...` works the same.
 To build it from source you need the .NET 8 SDK:
 
 ```bash
 dotnet build -c Release tools/cli
 ```
 
-The program lands in `tools/cli/bin/Release/net8.0/beatform.exe`. It finds the script library and
-these docs by looking next to itself and in the folders above it, or through `BEATFORM_LIBRARY` and
-`BEATFORM_DOCS`.
+The program lands in `tools/cli/bin/Release/net8.0/sonokinesis.exe`. It finds the script library and
+these docs by looking next to itself and in the folders above it, or through `SONOKINESIS_LIBRARY` and
+`SONOKINESIS_DOCS`.
 
 On the command line, arguments are `--name value`; the first one or two may be given without a name
-(see `beatform help <command>`). Values that look like JSON (numbers, `[...]`, `{...}`, `true`) are
+(see `sonokinesis help <command>`). Values that look like JSON (numbers, `[...]`, `{...}`, `true`) are
 read as JSON, and `@file` reads a file (for `--ops`, `--params`, `--code`, `--json`). Output is JSON
 (or plain text for docs and file contents). The exit code is 1 on errors, and when `validate-level`
 finds errors.
 
 ## MCP
 
-`beatform mcp` speaks the Model Context Protocol over stdin/stdout. Register it with your client:
+`sonokinesis mcp` speaks the Model Context Protocol over stdin/stdout. Register it with your client:
 
 Claude Code (in the folder you work in):
 
 ```bash
-claude mcp add beatform -- "C:/path/to/beatform.exe" mcp
+claude mcp add sonokinesis -- "C:/path/to/sonokinesis.exe" mcp
 ```
 
 Claude Desktop or other clients, in their MCP server settings:
@@ -49,14 +50,14 @@ Claude Desktop or other clients, in their MCP server settings:
 ```json
 {
   "mcpServers": {
-    "beatform": { "command": "C:/path/to/beatform.exe", "args": ["mcp"] }
+    "sonokinesis": { "command": "C:/path/to/sonokinesis.exe", "args": ["mcp"] }
   }
 }
 ```
 
 The tools have the same names and arguments as the commands below (with `_`: `render_frames`). Renders
 and screenshots come back as images the model can look at. The docs are also offered as resources
-(`beatform://docs/<topic>`).
+(`sonokinesis://docs/<topic>`).
 
 ## Commands
 
@@ -88,7 +89,7 @@ and screenshots come back as images the model can look at. The docs are also off
 Renders show the level as the game does: background, hazards (warnings pulse, active shapes solid),
 camera (sway, zoom, script camera), flashes, and a stand-in player (the cyan square, at -300, 150
 unless moved) that imposters chase and `@player` objects follow. Each frame is labelled with its song
-time and bar.beat. Without `--out`, pictures go to the temp folder (`%TEMP%/beatform/renders`).
+time and bar.beat. Without `--out`, pictures go to the temp folder (`%TEMP%/sonokinesis/renders`).
 
 `analyze-song` reports times two ways: `startMs`/`ms` are positions in the audio file, `songTime` is
 level time once `meta.offsetMs` is set to the reported `offsetMs` (`new-level` does that). Bars carry
@@ -129,21 +130,21 @@ A selector is one of `id: "o3"`, `ids: ["o3", "o4"]`, `group: "burst1"` (objects
 
 ## The game
 
-`play-in-game` writes a request into the game folder (`BepInEx/beatform/bridge/play.json`); the
-Beatform loader inside the running game picks it up, loads the level from its folder and starts it
+`play-in-game` writes a request into the game folder (`BepInEx/sonokinesis/bridge/play.json`); the
+Sonokinesis loader inside the running game picks it up, loads the level from its folder and starts it
 from the given song time (like the editor's **Test in game**). It answers in `status.json`. If the
 game is not running, the request waits there until it reaches the main menu.
 
 `game-screenshot` and the developer console need `DevConsole = true` in
-`BepInEx/config/dev.beatform.loader.cfg` (restart the game after changing it). Turn it off again when
+`BepInEx/config/dev.sonokinesis.loader.cfg` (restart the game after changing it). Turn it off again when
 you're done. While testing it is also wise to set `BlockAllSaves = true` there.
 
-The game is found through Steam's library folders, or set `BEATFORM_GAME_DIR`.
+The game is found through Steam's library folders, or set `SONOKINESIS_GAME_DIR`.
 
 ## The editor
 
-The running Beatform Editor watches `%LOCALAPPDATA%/Beatform/editor-bridge/command.json` and answers
-in `result.json`. `beatform editor <command>` does the round trip:
+The running Sonokinesis Editor watches `%LOCALAPPDATA%/Sonokinesis/editor-bridge/command.json` and answers
+in `result.json`. `sonokinesis editor <command>` does the round trip:
 
 | command | arguments | effect |
 |---|---|---|
@@ -166,6 +167,6 @@ follow.
 
 | variable | meaning |
 |---|---|
-| `BEATFORM_LIBRARY` | the script library folder |
-| `BEATFORM_DOCS` | the docs folder |
-| `BEATFORM_GAME_DIR` | the game folder (with `JSB.exe`) |
+| `SONOKINESIS_LIBRARY` | the script library folder |
+| `SONOKINESIS_DOCS` | the docs folder |
+| `SONOKINESIS_GAME_DIR` | the game folder (with `JSB.exe`) |
