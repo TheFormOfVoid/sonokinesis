@@ -19,7 +19,7 @@ meta = {
 function build(p) {
   var warn = p.warnBeats * beatMs;
   add({
-    name: 'burst bomb', shape: 'circle', start: p.hit - warn, end: p.hit + 120, warn: warn, outro: 120,
+    name: 'burst bomb', shape: 'circle', start: p.hit - warn, end: p.hit + 120, warn: warn, outro: 120, hitbox: false,
     x: p.x, y: p.y,
     w: [[0, p.bomb * 0.4], [warn, p.bomb, 'inBack']],
     h: [[0, p.bomb * 0.4], [warn, p.bomb, 'inBack']],

@@ -9,6 +9,8 @@ Beatform ships or builds on these projects. Each keeps its own license.
 | HarmonyX (inside BepInEx) | Method patches | MIT | https://github.com/BepInEx/HarmonyX |
 | NVorbis 0.10.5 | Decoding Ogg Vorbis songs | MIT | https://github.com/NVorbis/NVorbis |
 | NLayer 1.16.0 | Decoding MP3 songs | MIT | https://github.com/naudio/NLayer |
+| Jint 4.17.0 | Running level scripts (JavaScript) | BSD-2-Clause | https://github.com/sebastienros/jint |
+| Acornima 1.7.0 (used by Jint) | Parsing JavaScript | BSD-3-Clause | https://github.com/adams85/acornima |
 | Godot Engine 4.7 | The editor | MIT | https://github.com/godotengine/godot |
 | Montserrat (Bold, Medium) | Glyph outlines of text shapes, baked into the code | SIL OFL 1.1 (`Montserrat-OFL.txt`) | https://github.com/JulietaUla/Montserrat |
 

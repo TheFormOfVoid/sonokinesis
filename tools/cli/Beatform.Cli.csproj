@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Beatform.Cli</RootNamespace>
+    <AssemblyName>beatform</AssemblyName>
+    <Version>0.2.0</Version>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The same level, script and audio code as the game loader and the editor. -->
+    <Compile Include="..\..\shared\Core\*.cs" Link="shared\Core\%(Filename)%(Extension)" />
+    <Compile Include="..\..\shared\Scripting\*.cs" Link="shared\Scripting\%(Filename)%(Extension)" />
+    <Compile Include="..\..\shared\Audio\*.cs" Link="shared\Audio\%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Jint" Version="4.17.0" />
+    <PackageReference Include="NVorbis" Version="0.10.5" />
+    <PackageReference Include="NLayer" Version="1.16.0" />
+  </ItemGroup>
+</Project>

@@ -33,3 +33,7 @@ research/imposter/
 
 # Python caches
 __pycache__/
+
+# .NET build output
+bin/
+obj/
