@@ -254,6 +254,8 @@ public sealed class ScriptHost
     public readonly ScriptFrame Frame = new();
     /// <summary>log() output, oldest first (capped).</summary>
     public List<string> Logs => context.Logs;
+    /// <summary>How many lines were ever logged; Logs keeps only the latest.</summary>
+    public long TotalLogs => context.TotalLogs;
     /// <summary>Errors scripts ran into, each reported once.</summary>
     public readonly List<ScriptError> Errors = new();
     public ScriptLibrary Library => lib;
@@ -371,7 +373,7 @@ public sealed class ScriptHost
         error = null;
         var res = new List<string>();
         if (type.CompileError != null) { error = type.CompileError; return res; }
-        var ctx = new ScriptContext { Phase = ScriptPhase.Build, Added = res, NewId = newId, Logs = logs ?? new List<string>() };
+        var ctx = new ScriptContext { Phase = ScriptPhase.Build, Added = res, NewId = newId, Logs = logs ?? new List<string>(), BuildingScript = type.Name };
         var prev = ScriptContext.Current;
         ScriptContext.Current = ctx;
         try

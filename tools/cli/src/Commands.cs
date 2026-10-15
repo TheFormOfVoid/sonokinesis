@@ -418,7 +418,10 @@ public static class Commands
                     ["script"] = new JsonObject { ["name"] = name },
                 }),
             }.ToJsonString());
-            foreach (var kv in data.ScriptSources) trial.ScriptSources[kv.Key] = kv.Value;
+            // Only this script and the ones that compile: another broken script must not fail the trial.
+            var all = new ScriptLibrary(data.ScriptSources);
+            foreach (var kv in data.ScriptSources)
+                if (kv.Key.Equals(name, StringComparison.OrdinalIgnoreCase) || all.Get(kv.Key)?.CompileError == null) trial.ScriptSources[kv.Key] = kv.Value;
             var r = new LevelRenderer(trial, new RenderOptions());
             var items = new List<DrawItem>();
             int maxDraws = 0;

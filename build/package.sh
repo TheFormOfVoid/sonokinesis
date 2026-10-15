@@ -2,11 +2,14 @@
 # Builds a release folder and zip in dist/:
 #   Beatform-<version>/
 #     Beatform Editor/        exported editor (needs Godot .NET export templates; skipped if missing)
+#     tools/beatform.exe      the command-line tool and MCP server (self-contained)
+#     library/                built-in scripts (attacks, effects, patterns), used by the editor and the tool
+#     docs/                   guides and the level format
 #     loader/bepinex/         BepInEx 6 IL2CPP, pinned build, checked by SHA-256
 #     loader/plugin/          Beatform.Loader.dll and its audio decoders
 #     loader/levels/          the demo level
 #     Install-Beatform.bat / Uninstall-Beatform.bat (+ .ps1)
-#     README.md, THIRD-PARTY-NOTICES.md, Montserrat-OFL.txt
+#     README.md, LICENSE, THIRD-PARTY-NOTICES.md, Montserrat-OFL.txt
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
@@ -41,7 +44,20 @@ cp -r spec/examples/demo "$OUT/loader/levels/Neon Rehearsal"
 
 echo "== installer"
 cp installer/*.ps1 installer/*.bat "$OUT/"
-cp README.md THIRD-PARTY-NOTICES.md "$OUT/" 2>/dev/null || true
+cp README.md LICENSE THIRD-PARTY-NOTICES.md "$OUT/"
+
+echo "== library and docs"
+cp -r library "$OUT/library"
+mkdir -p "$OUT/docs"
+cp docs/*.md "$OUT/docs/"
+cp spec/level-format.md "$OUT/docs/level-format.md"
+# Inside the release the format sits next to the other guides.
+sed -i 's#\.\./spec/level-format\.md#level-format.md#g' "$OUT"/docs/*.md
+
+echo "== tool"
+(cd tools/cli && dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true   -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$OUT/tools" -nologo -v q | grep -E "error" || true)
+rm -f "$OUT"/tools/*.pdb
+test -f "$OUT/tools/beatform.exe"
 cp shared/Fonts/OFL.txt "$OUT/Montserrat-OFL.txt"
 
 echo "== editor"

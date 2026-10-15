@@ -70,9 +70,15 @@ internal sealed class ScriptContext
     public Rgba Hazard = new(1, 0x2a / 255f, 0x6d / 255f);
     public Rgba PlayerColor = LevelData.DefaultPlayerColor;
     public List<string> Logs;
+    /// <summary>Misuse warnings already logged (script + message), so each shows once.</summary>
+    public readonly HashSet<string> Warned = new();
+    /// <summary>How many lines were ever logged (Logs drops old ones when full).</summary>
+    public long TotalLogs;
     /// <summary>Pattern builds: the objects added, as JSON, and a function that names them.</summary>
     public List<string> Added;
     public Func<string> NewId;
+    /// <summary>The pattern being built, for messages.</summary>
+    public string BuildingScript;
 }
 
 /// <summary>The native functions behind the JavaScript API (ScriptPrelude), installed in every script engine.</summary>
@@ -117,7 +123,8 @@ internal static class ScriptApi
         int flags, int layer, double a, double b, string text)
     {
         var c = C;
-        if (c == null || c.Phase != ScriptPhase.Draw || c.Draws == null || c.Draws.Count >= MaxDrawsPerFrame) return;
+        if (c != null && c.Phase != ScriptPhase.Draw) { Misuse(c, "shapes are drawn only in draw(): rect, circle, text and the rest do nothing in start(), update() or build()"); return; }
+        if (c == null || c.Draws == null || c.Draws.Count >= MaxDrawsPerFrame) return;
         ShapeDef def;
         switch (kind)
         {
@@ -147,7 +154,8 @@ internal static class ScriptApi
     private static void Polygon(string points, string color, double alpha, int flags, int layer)
     {
         var c = C;
-        if (c == null || c.Phase != ScriptPhase.Draw || c.Draws == null || c.Draws.Count >= MaxDrawsPerFrame) return;
+        if (c != null && c.Phase != ScriptPhase.Draw) { Misuse(c, "shape() draws only in draw()"); return; }
+        if (c == null || c.Draws == null || c.Draws.Count >= MaxDrawsPerFrame) return;
         var parts = (points ?? "").Split(',');
         var pts = new List<Vec2>();
         for (int i = 0; i + 1 < parts.Length; i += 2)
@@ -189,7 +197,9 @@ internal static class ScriptApi
     private static void Signal(ScriptSignal s)
     {
         var c = C;
-        if (c?.World == null || c.Phase == ScriptPhase.Draw || c.Phase == ScriptPhase.Build) return;
+        if (c != null && c.Phase == ScriptPhase.Draw) { Misuse(c, $"{Verb(s.Kind)} works only in start() or update(), not in draw() (draw can run several times per step)"); return; }
+        if (c != null && c.Phase == ScriptPhase.Build) { Misuse(c, $"{Verb(s.Kind)} does nothing in a pattern's build()"); return; }
+        if (c?.World == null) return;
         s.T = c.Time;
         c.World.Signals.Add(s);
     }
@@ -197,7 +207,8 @@ internal static class ScriptApi
     private static void Speed(double speed, double turn)
     {
         var f = C?.Frame;
-        if (f == null || C.Phase != ScriptPhase.Draw) return;
+        if (C != null && C.Phase != ScriptPhase.Draw) { Misuse(C, "setPlayerSpeed applies to the frame being drawn: call it in draw()"); return; }
+        if (f == null) return;
         f.PlayerSpeed = Math.Min(f.PlayerSpeed, Math.Clamp(speed, 0, 2));
         f.PlayerTurn = Math.Min(f.PlayerTurn, Math.Clamp(turn, 0.001, 1));
     }
@@ -205,7 +216,8 @@ internal static class ScriptApi
     private static void Cam(int kind, double a, double b, double c2)
     {
         var f = C?.Frame;
-        if (f == null || C.Phase != ScriptPhase.Draw) return;
+        if (C != null && C.Phase != ScriptPhase.Draw) { Misuse(C, "camera.move, camera.rotate and camera.zoom apply to the frame being drawn: call them in draw() (for a one-off push from update(), use camera.kick, kickRotate or kickZoom)"); return; }
+        if (f == null) return;
         switch (kind)
         {
             case 0: f.CamX += a; f.CamY += b; break;
@@ -218,11 +230,13 @@ internal static class ScriptApi
     private static void Effect(int kind, double a, double b, double c2, double ms, string ease, string color)
     {
         var c = C;
-        if (c?.World == null || c.Phase == ScriptPhase.Build) return;
+        if (c != null && c.Phase == ScriptPhase.Build) { Misuse(c, "camera and screen effects do nothing in a pattern's build()"); return; }
+        if (c?.World == null) return;
         if (kind == 4 && ms < 0)
         {
             // A flash for this frame only.
-            if (c.Phase == ScriptPhase.Draw && c.Frame != null)
+            if (c.Phase != ScriptPhase.Draw) Misuse(c, "screen.flash without a duration lasts one frame and works only in draw(); from update(), give it a duration: screen.flash('#fff', 0.8, 300)");
+            else if (c.Frame != null)
             {
                 var col = ParseColor(color, c);
                 col.A = (float)(col.A * Math.Clamp(a, 0, 1));
@@ -232,7 +246,7 @@ internal static class ScriptApi
         }
         // Timed effects belong to the world, so they repeat exactly after a rewind. In draw they are
         // ignored (draw may run any number of times per step).
-        if (c.Phase == ScriptPhase.Draw) return;
+        if (c.Phase == ScriptPhase.Draw) { Misuse(c, "camera.kick, kickRotate, kickZoom, shake and screen.flash with a duration start an effect, so they work only in start() or update(), not in draw()"); return; }
         c.World.Effects.Add(new ScriptEffect
         {
             Kind = kind, A = a, B = b, Start = c.Time, Duration = Math.Max(1, ms), Ease = Ease.Parse(ease),
@@ -243,15 +257,31 @@ internal static class ScriptApi
     private static void Background(string color)
     {
         var c = C;
-        if (c?.Frame == null || c.Phase != ScriptPhase.Draw) return;
+        if (c != null && c.Phase != ScriptPhase.Draw) { Misuse(c, "screen.background applies to the frame being drawn: call it in draw()"); return; }
+        if (c?.Frame == null) return;
         c.Frame.Background = ParseColor(color, c);
     }
 
     private static void Spawn(string name, string paramsJson, double x, double y)
     {
         var c = C;
-        if (c?.World == null || c.Phase == ScriptPhase.Draw || c.Phase == ScriptPhase.Build) return;
+        if (c != null && c.Phase == ScriptPhase.Draw) { Misuse(c, "spawn works only in start() or update(), not in draw()"); return; }
+        if (c != null && c.Phase == ScriptPhase.Build) { Misuse(c, "spawn does nothing in a pattern's build(): use add()"); return; }
+        if (c?.World == null) return;
         c.World.Spawn(name, paramsJson, x, y, c.Time, c.Instance);
+    }
+
+    private static string Verb(string kind) => kind switch { "hit" => "hitPlayer", "move" => "movePlayer", _ => "sound" };
+
+    /// <summary>Logs, once per script, that a function was called where it does nothing.</summary>
+    private static void Misuse(ScriptContext c, string message)
+    {
+        if (c.Logs == null) return;
+        string who = c.Instance?.Type.Name ?? c.BuildingScript ?? "script";
+        if (!c.Warned.Add(who + "|" + message)) return;
+        if (c.Logs.Count >= MaxLogs) c.Logs.RemoveRange(0, MaxLogs / 5);
+        c.Logs.Add($"[{who}] warning: {message}");
+        c.TotalLogs++;
     }
 
     private static void Log(string s)
@@ -261,6 +291,7 @@ internal static class ScriptApi
         if (c.Logs.Count >= MaxLogs) c.Logs.RemoveRange(0, MaxLogs / 5);
         string who = c.Instance?.Type.Name ?? "script";
         c.Logs.Add($"[{who} {c.Time / 1000:0.000}s] {s}");
+        c.TotalLogs++;
     }
 
     private static string Add(string json)

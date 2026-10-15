@@ -190,9 +190,18 @@ public class BeatformRuntime : MonoBehaviour
                 case "move": GameBridge.MoveHero(s.Player, (float)s.X, (float)s.Y); break;
             }
         }
-        var errors = level.Evaluator.Scripts?.Errors;
-        if (errors != null) while (reportedErrors < errors.Count) Plugin.Logger.LogWarning("script error: " + errors[reportedErrors++]);
+        var host = level.Evaluator.Scripts;
+        if (host == null) return;
+        var errors = host.Errors;
+        while (reportedErrors < errors.Count) Plugin.Logger.LogWarning("script error: " + errors[reportedErrors++]);
+        // log() lines from scripts, the newest ones if many came at once.
+        if (host.TotalLogs < reportedLogs) reportedLogs = 0;
+        long fresh = host.TotalLogs - reportedLogs;
+        for (int i = (int)Math.Max(0, host.Logs.Count - fresh); i < host.Logs.Count; i++) Plugin.Logger.LogInfo("script: " + host.Logs[i]);
+        reportedLogs = host.TotalLogs;
     }
+
+    private long reportedLogs;
 
     private readonly List<ScriptSignal> signals = new();
     private int reportedErrors;
@@ -296,6 +305,7 @@ public class BeatformRuntime : MonoBehaviour
         ApplyPlayerSpeed(1);
         furthestSongTime = double.NaN;
         reportedErrors = 0;
+        reportedLogs = 0;
         if (heroesHidden) { GameBridge.ShowHeroes(true); heroesHidden = false; }
         sessionStartedAt = 0;
         sessionSeenInGame = false;

@@ -1,6 +1,9 @@
 namespace Beatform.Editor.Scripts;
 
-/// <summary>Starting points for new scripts.</summary>
+/// <summary>
+/// Starting points for new scripts. The code these write into a level is under MIT No Attribution, like
+/// library/ (see library/LICENSE), so levels made from them carry no license conditions.
+/// </summary>
 public static class ScriptTemplates
 {
     public static readonly string[] Kinds = { "attack", "effect", "pattern" };

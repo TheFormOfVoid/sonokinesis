@@ -40,6 +40,20 @@ function draw() {
         var sp = new ScriptParamCheck(level.ScriptSources["slide"]);
         check(sp.Ok, "meta.params are read: " + sp.Info);
 
+        // Calls in the wrong function do nothing, and say so once.
+        var misplaced = @"
+function update(dt) { rect(0, 0, 10, 10); camera.move(5, 0); }
+function draw() { camera.kick(10, 0, 200); camera.kick(10, 0, 200); square(0, 0, 10); }";
+        level = Level("{\"id\":\"m\",\"start\":0,\"end\":5000,\"script\":{\"name\":\"misplaced\"}}", new() { ["misplaced"] = misplaced });
+        ev = new LevelEvaluator(level);
+        ev.Collect(500, items);
+        ev.Collect(1000, items);
+        var warnings = ev.Scripts.Logs.Where(l => l.Contains("warning:")).ToList();
+        check(items.Count == 1, $"only the shape drawn in draw() shows ({items.Count})");
+        check(warnings.Count == 3 && warnings.Any(w => w.Contains("draw()")) && warnings.Any(w => w.Contains("camera.move")) && warnings.Any(w => w.Contains("camera.kick")),
+            "misplaced calls warn once each: " + string.Join(" | ", warnings));
+        near(ev.CameraAt(1000).X, 0, "a kick asked for in draw() does nothing", 1e-9);
+
         // update(): state, spawning, killing, random, and a rewind repeating it exactly.
         var spawner = @"
 meta = { name: 'Spawner' };

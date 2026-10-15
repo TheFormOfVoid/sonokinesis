@@ -8,6 +8,7 @@ My Level/
   level.json      required
   song.ogg        the audio file named by meta.audio (.ogg, .wav or .mp3)
   cover.png       optional, shown in the level list
+  scripts/        optional: the level's scripts (*.js), see Scripts
 ```
 
 A level may also be shipped as a `.zip` of that folder; the loader treats the zip the same way.
@@ -130,6 +131,7 @@ An object is one shape with an animated transform. Everything a level does is bu
 | `imposter` | none | Makes the object move like a player. See *Imposters*. *(v2)* |
 | `random` | none | Random offsets picked again on every play. See *Random each play*. *(v2)* |
 | `choice` | none | The object exists only on some rolls of random groups. See *Random each play*. *(v2)* |
+| `script` | none | Runs a script instead of drawing its shape. See *Scripts*. *(v2)* |
 | `pivot` | `[0, 0]` | The point that `x`/`y` place and that rotation and scale turn around, in fractions of the object's size: `[-0.5, 0]` is the middle of the left edge. |
 
 ### Phases
@@ -403,6 +405,38 @@ transform). For `ring` only the band between the two circles counts.
 The loader decides the overlap and then hands the hit to the game, so invincibility after a hit and
 while dashing work exactly as in official levels.
 
+### Scripts *(v2)*
+
+An object with a `script` block runs one of the level's scripts (`scripts/NAME.js`) while it exists,
+instead of drawing its shape:
+
+```json
+{ "id": "o7", "shape": { "type": "rect" }, "start": 4000, "end": 8000,
+  "script": { "name": "bullet_ring", "params": { "count": 16, "speed": 340 } },
+  "tracks": { "x": [[0, 0]], "y": [[0, -100]] } }
+```
+
+`params` are the script's settings (numbers, strings, booleans); missing ones take the defaults the
+script declares in `meta.params`. The object's `x`, `y` and `rot` at `start` (through its parents) are
+where the script starts; its shape, `w`, `h`, `opacity`, `warn`, `outro`, `hitbox`, `color` and
+`layer` are not used. The script draws what it wants each frame; those shapes hurt like objects
+(collision as above) unless the script marks them as decoration, warnings or front shapes.
+
+Scripts are JavaScript (as run by the Jint engine, ECMAScript 2023 and later features) with the API in
+`docs/scripting.md`, run in a sandbox with
+no clock, files or network. Each script object is a world of *instances*, started with one instance
+at `start` and stepped in fixed steps of `1000/60` ms from `start` (`update`), drawn at the exact
+song time (`draw`). Random numbers come from a splitmix64 generator whose state starts at
+`⌊R(seed, "script/" + id) · 2^64⌋` (see *Random each play*), so
+a play is the same every time it reaches the same song time: going back in time restarts the world
+from `start` and steps it forward again. Outside `[start, end)` the script draws nothing and has no
+effect. Camera, screen and player-speed requests from scripts combine with the events: camera shifts
+and rotations add, zooms multiply, player speed and turn take the minimum, a script background
+replaces the event background for that frame, script flashes add to event flashes.
+
+A level runs only the scripts in its own `scripts/` folder. A script with `kind: 'pattern'` in its
+`meta` is an editor tool that builds objects; it cannot be used in a `script` block.
+
 ## Events
 
 Events change the whole scene at a song time.
@@ -431,4 +465,5 @@ Events change the whole scene at a song time.
 - The camera's sway and zoom move the game's gameplay container: rotation and scale by their change
   each frame, position by a shift added after the game places its camera every frame.
 - Version 1 levels will always load in later loaders. Version 2 adds players (`"@player"` parents and
-  colours) and imposters; the editor writes version 2.
+  colours), imposters, text, random each play, scripts and the newer events; the editor writes
+  version 2.

@@ -48,7 +48,14 @@ public sealed class ScriptsService
     private static string FindLibrary()
     {
         var candidates = new List<string>();
-        try { candidates.Add(Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath()) ?? "", "library")); } catch { }
+        try
+        {
+            var exeDir = Path.GetDirectoryName(OS.GetExecutablePath()) ?? "";
+            candidates.Add(Path.Combine(exeDir, "library"));
+            // In the release, library/ sits beside the editor's folder (shared with the beatform tool).
+            candidates.Add(Path.GetFullPath(Path.Combine(exeDir, "..", "library")));
+        }
+        catch { }
         try { candidates.Add(Path.GetFullPath(Path.Combine(ProjectSettings.GlobalizePath("res://"), "..", "library"))); } catch { }
         return candidates.FirstOrDefault(Directory.Exists);
     }
