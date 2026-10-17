@@ -161,7 +161,8 @@ files), and the game opens it as soon as it is on a menu.
 
 ## Sharing
 
-**Share → Export as .zip** makes one file other players drop into their `CustomLevels` folder.
+**Share → Export as .zip** makes one file to give to other players: they drop it onto `Add-Level.bat`
+(in the Sonokinesis or Sonokinesis-Player download) or into their `CustomLevels` folder.
 **Copy into the game's CustomLevels folder** installs it on your own game; **Open level folder** shows
 the files.
 

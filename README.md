@@ -10,20 +10,24 @@ shapes, levels bring their own songs, and the loader only talks to the game you 
 
 ## For players
 
-1. Download the Sonokinesis release and unzip it anywhere.
+Only want to play? Get **Sonokinesis-Player** from the releases: just the loader, no editor.
+
+1. Unzip it anywhere.
 2. Close the game and double-click `Install-Sonokinesis.bat`. It finds the game through Steam, adds the
    BepInEx mod loader and the Sonokinesis plugin next to the game files (nothing is replaced), and
    creates a `CustomLevels` folder with a demo level.
-3. Start the game. The first start takes a minute or two while BepInEx prepares itself.
-4. On the main menu (or the playlist screen) press **F1** to open the custom level list.
-
-Put levels in `Just Shapes & Beats/CustomLevels`, either as a folder or as a `.zip`.
+3. Drag level `.zip` files or level folders onto `Add-Level.bat` to add them (double-click it to open
+   the levels folder).
+4. Start the game. The first start takes a minute or two while BepInEx prepares itself.
+5. On the main menu (or the playlist screen) press **F1** to open the custom level list.
 
 Custom levels never change your save file or Steam achievements: saving is paused while a custom level
 runs, and your progress is put back exactly as it was afterwards. Custom levels work in solo and local
 co-op; they are not available in online lobbies.
 
 To remove everything, close the game and run `Uninstall-Sonokinesis.bat`. Your levels are kept.
+
+The full **Sonokinesis** download has the same loader and installer, plus the editor and tools.
 
 ## For level makers
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Builds a release folder and zip in dist/:
-#   Sonokinesis-<version>/
+# Builds two release folders and zips in dist/:
+#   Sonokinesis-Player-<version>/   only what playing needs: the installer, the loader, Add-Level, a player README
+#   Sonokinesis-<version>/          everything (also for making levels):
 #     Sonokinesis Editor/        exported editor (needs Godot .NET export templates; skipped if missing)
 #     tools/sonokinesis.exe   the command-line tool and MCP server (self-contained), and sono.cmd
 #     library/                built-in scripts (attacks, effects, patterns), used by the editor and the tool
@@ -8,7 +9,7 @@
 #     loader/bepinex/         BepInEx 6 IL2CPP, pinned build, checked by SHA-256
 #     loader/plugin/          Sonokinesis.Loader.dll and its audio decoders
 #     loader/levels/          the demo level
-#     Install-Sonokinesis.bat / Uninstall-Sonokinesis.bat (+ .ps1)
+#     Install-Sonokinesis.bat / Uninstall-Sonokinesis.bat / Add-Level.bat (+ .ps1)
 #     README.md, LICENSE, THIRD-PARTY-NOTICES.md, Montserrat-OFL.txt
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -72,6 +73,17 @@ else
   echo "   Run it from source with: Godot_v4.7.2-stable_mono --path editor"
 fi
 
+echo "== player package"
+PLAYER="$ROOT/dist/Sonokinesis-Player-$VERSION"
+rm -rf "$PLAYER" && mkdir -p "$PLAYER"
+cp installer/*.ps1 installer/*.bat "$PLAYER/"
+cp -r "$OUT/loader" "$PLAYER/loader"
+cp installer/README-Player.md "$PLAYER/README.md"
+cp LICENSE THIRD-PARTY-NOTICES.md "$PLAYER/"
+cp shared/Fonts/OFL.txt "$PLAYER/Montserrat-OFL.txt"
+
 echo "== zip"
-(cd "$ROOT/dist" && rm -f "Sonokinesis-$VERSION.zip" && powershell -NoProfile -Command "Compress-Archive -Path 'Sonokinesis-$VERSION' -DestinationPath 'Sonokinesis-$VERSION.zip'")
+for name in "Sonokinesis-$VERSION" "Sonokinesis-Player-$VERSION"; do
+  (cd "$ROOT/dist" && rm -f "$name.zip" && powershell -NoProfile -Command "Compress-Archive -Path '$name' -DestinationPath '$name.zip'")
+done
 ls -la "$ROOT/dist"
