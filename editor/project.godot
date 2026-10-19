@@ -3,17 +3,17 @@ config_version=5
 
 [application]
 
-config/name="Sonokinesis Editor"
-config/description="Level editor for Sonokinesis custom levels"
-run/main_scene="res://Main.tscn"
+config/name="Sonokinesis"
+config/description="Play and make custom levels for Just Shapes & Beats"
+run/main_scene="res://Hub.tscn"
 config/icon="res://icon.svg"
 config/features=PackedStringArray("4.7", "C#", "GL Compatibility")
 run/low_processor_mode=false
 
 [display]
 
-window/size/viewport_width=1600
-window/size/viewport_height=900
+window/size/viewport_width=1280
+window/size/viewport_height=800
 window/size/resizable=true
 window/energy_saving/keep_screen_on=false
 window/subwindows/embed_subwindows=true

@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# Builds two release folders and zips in dist/:
-#   Sonokinesis-Player-<version>/   only what playing needs: the installer, the loader, Add-Level, a player README
-#   Sonokinesis-<version>/          everything (also for making levels):
-#     Sonokinesis Editor/        exported editor (needs Godot .NET export templates; skipped if missing)
-#     tools/sonokinesis.exe   the command-line tool and MCP server (self-contained), and sono.cmd
-#     library/                built-in scripts (attacks, effects, patterns), used by the editor and the tool
-#     docs/                   guides and the level format
-#     loader/bepinex/         BepInEx 6 IL2CPP, pinned build, checked by SHA-256
-#     loader/plugin/          Sonokinesis.Loader.dll and its audio decoders
-#     loader/levels/          the demo level
-#     Install-Sonokinesis.bat / Uninstall-Sonokinesis.bat / Add-Level.bat (+ .ps1)
-#     README.md, LICENSE, THIRD-PARTY-NOTICES.md, Montserrat-OFL.txt
+# Builds the release into dist/:
+#   Sonokinesis-<version>/                 the app as a folder (what the setup installs):
+#     Sonokinesis.exe (+ its data folder)    play, levels, settings and the editor in one window
+#     loader/bepinex/                        BepInEx 6 IL2CPP, pinned build, checked by SHA-256
+#     loader/plugin/                         Sonokinesis.Loader.dll and its audio decoders
+#     loader/levels/                         the demo level
+#     library/  docs/                        built-in scripts and the guides
+#     LICENSE, THIRD-PARTY-NOTICES.md, Montserrat-OFL.txt
+#   Sonokinesis-Setup-<version>.exe        installer of that folder (Inno Setup 6)
+#   Sonokinesis-<version>-portable.zip     the same folder zipped, for running without installing
+#   Sonokinesis-AI-Tool-<version>.zip      the command-line tool and MCP server (the app downloads it on request)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
-VERSION="$(sed -n 's/.*const string Version = "\([^"]*\)".*/\1/p' loader/src/Plugin.cs | head -1)"
+VERSION="$(sed -n 's/.*const string Version = "\([^"]*\)".*/\1/p' shared/Core/BuildInfo.cs | head -1)"
 OUT="$ROOT/dist/Sonokinesis-$VERSION"
 CACHE="$ROOT/build/cache"
 GODOT="${GODOT:-/c/Tools/Godot-dotnet/Godot_v4.7.2-stable_mono_win64/Godot_v4.7.2-stable_mono_win64_console.exe}"
+ISCC="${ISCC:-$LOCALAPPDATA/Programs/Inno Setup 6/ISCC.exe}"
 export PATH="/c/Program Files/dotnet:$PATH"
 
 BEPINEX_URL="https://builds.bepinex.dev/projects/bepinex_be/788/BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.788%2B5b766a3.zip"
@@ -39,13 +39,12 @@ if [ ! -f "$CACHE/bepinex.zip" ] || ! echo "$BEPINEX_SHA256  $CACHE/bepinex.zip"
 fi
 echo "$BEPINEX_SHA256  $CACHE/bepinex.zip" | sha256sum -c -
 (cd "$OUT/loader/bepinex" && unzip -q "$CACHE/bepinex.zip")
+# The loader's console window stays closed unless the player turns it on in the app.
+mkdir -p "$OUT/loader/bepinex/BepInEx/config"
+printf '[Logging.Console]\r\n\r\n## Enables showing a console for log output.\r\n# Setting type: Boolean\r\n# Default value: true\r\nEnabled = false\r\n' > "$OUT/loader/bepinex/BepInEx/config/BepInEx.cfg"
 
 echo "== demo level"
 cp -r spec/examples/demo "$OUT/loader/levels/Neon Rehearsal"
-
-echo "== installer"
-cp installer/*.ps1 installer/*.bat "$OUT/"
-cp README.md LICENSE THIRD-PARTY-NOTICES.md "$OUT/"
 
 echo "== library and docs"
 cp -r library "$OUT/library"
@@ -54,36 +53,35 @@ cp docs/*.md "$OUT/docs/"
 cp spec/level-format.md "$OUT/docs/level-format.md"
 # Inside the release the format sits next to the other guides.
 sed -i 's#\.\./spec/level-format\.md#level-format.md#g' "$OUT"/docs/*.md
-
-echo "== tool"
-(cd tools/cli && dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true   -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$OUT/tools" -nologo -v q | grep -E "error" || true)
-rm -f "$OUT"/tools/*.pdb
-test -f "$OUT/tools/sonokinesis.exe"
-# A short name for typing: sono new-level, sono mcp, ...
-printf '@"%%~dp0sonokinesis.exe" %%*\r\n' > "$OUT/tools/sono.cmd"
+cp LICENSE THIRD-PARTY-NOTICES.md "$OUT/"
 cp shared/Fonts/OFL.txt "$OUT/Montserrat-OFL.txt"
 
-echo "== editor"
-if ls "$APPDATA/Godot/export_templates/" 2>/dev/null | grep -q "4.7.2.stable.mono"; then
-  mkdir -p "$OUT/Sonokinesis Editor"
-  (cd editor && dotnet build -nologo -v q | grep -E "Error\(s\)" && "$GODOT" --headless --path . --export-release "Windows Desktop" "$(cygpath -w "$OUT/Sonokinesis Editor/Sonokinesis Editor.exe")" 2>&1 | grep -E "^ERROR" || true)
-  test -f "$OUT/Sonokinesis Editor/Sonokinesis Editor.exe"
-else
-  echo "   Godot .NET export templates for 4.7.2 are not installed: the editor is not exported."
-  echo "   Run it from source with: Godot_v4.7.2-stable_mono --path editor"
+echo "== app"
+if ! ls "$APPDATA/Godot/export_templates/" 2>/dev/null | grep -q "4.7.2.stable.mono"; then
+  echo "   Godot .NET export templates for 4.7.2 are not installed: install them from the Godot editor first."
+  exit 1
 fi
+(cd editor && dotnet build -nologo -v q | grep -E "Error\(s\)" && "$GODOT" --headless --path . --export-release "Windows Desktop" "$(cygpath -w "$OUT/Sonokinesis.exe")" 2>&1 | grep -E "^ERROR" || true)
+test -f "$OUT/Sonokinesis.exe"
+# Install, switches, levels and uninstall against a stand-in game folder, with the exported app's own files.
+"$OUT/Sonokinesis.exe" --headless -- --selftest "$(cygpath -w "$ROOT/build/selftest-game")" 2>&1 | grep -E "^(FAIL|SELFTEST)" || true
+"$OUT/Sonokinesis.exe" --headless -- --selftest "$(cygpath -w "$ROOT/build/selftest-game")" >/dev/null 2>&1 || { echo "   the app's self-test failed"; exit 1; }
+rm -rf "$ROOT/build/selftest-game"
 
-echo "== player package"
-PLAYER="$ROOT/dist/Sonokinesis-Player-$VERSION"
-rm -rf "$PLAYER" && mkdir -p "$PLAYER"
-cp installer/*.ps1 installer/*.bat "$PLAYER/"
-cp -r "$OUT/loader" "$PLAYER/loader"
-cp installer/README-Player.md "$PLAYER/README.md"
-cp LICENSE THIRD-PARTY-NOTICES.md "$PLAYER/"
-cp shared/Fonts/OFL.txt "$PLAYER/Montserrat-OFL.txt"
+echo "== AI tool"
+TOOL="$ROOT/build/tool-out"
+rm -rf "$TOOL"
+(cd tools/cli && dotnet publish -c Release -r win-x64 -p:Version=$VERSION --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$TOOL" -nologo -v q | grep -E "error" || true)
+rm -f "$TOOL"/*.pdb
+test -f "$TOOL/sonokinesis.exe"
+# A short name for typing: sono new-level, sono mcp, ...
+printf '@"%%~dp0sonokinesis.exe" %%*\r\n' > "$TOOL/sono.cmd"
 
-echo "== zip"
-for name in "Sonokinesis-$VERSION" "Sonokinesis-Player-$VERSION"; do
-  (cd "$ROOT/dist" && rm -f "$name.zip" && powershell -NoProfile -Command "Compress-Archive -Path '$name' -DestinationPath '$name.zip'")
-done
+echo "== zips and setup"
+cd "$ROOT/dist"
+rm -f "Sonokinesis-$VERSION-portable.zip" "Sonokinesis-AI-Tool-$VERSION.zip" "Sonokinesis-Setup-$VERSION.exe"
+powershell -NoProfile -Command "Compress-Archive -Path 'Sonokinesis-$VERSION' -DestinationPath 'Sonokinesis-$VERSION-portable.zip'"
+powershell -NoProfile -Command "Compress-Archive -Path '$(cygpath -w "$TOOL")\\*' -DestinationPath 'Sonokinesis-AI-Tool-$VERSION.zip'"
+"$ISCC" //Q "//DAppVersion=$VERSION" "$(cygpath -w "$ROOT/installer/Sonokinesis.iss")"
+rm -rf "$TOOL"
 ls -la "$ROOT/dist"

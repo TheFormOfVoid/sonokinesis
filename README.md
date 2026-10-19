@@ -10,28 +10,30 @@ shapes, levels bring their own songs, and the loader only talks to the game you 
 
 ## For players
 
-Only want to play? Get **Sonokinesis-Player** from the releases: just the loader, no editor.
+1. Download **Sonokinesis-Setup** from the [releases](https://github.com/TheFormOfVoid/sonokinesis/releases)
+   and run it (no administrator rights needed).
+2. Open Sonokinesis and press **Play**. The first time, it finds the game through Steam and adds the
+   BepInEx mod loader and the Sonokinesis plugin next to the game files (nothing of the game is replaced),
+   then starts the game. That first start takes a minute or two while BepInEx prepares itself.
+3. To add levels, drop their `.zip` files (or folders) on the Sonokinesis window. The **Levels** tab lists
+   them, plays one straight away, opens it in the editor or removes it.
+4. In the game, press **F1** on the main menu (or the playlist screen) to open the custom level list.
 
-1. Unzip it anywhere.
-2. Close the game and double-click `Install-Sonokinesis.bat`. It finds the game through Steam, adds the
-   BepInEx mod loader and the Sonokinesis plugin next to the game files (nothing is replaced), and
-   creates a `CustomLevels` folder with a demo level.
-3. Drag level `.zip` files or level folders onto `Add-Level.bat` to add them (double-click it to open
-   the levels folder).
-4. Start the game. The first start takes a minute or two while BepInEx prepares itself.
-5. On the main menu (or the playlist screen) press **F1** to open the custom level list.
+The app keeps itself up to date (it asks before updating). In **Settings** you can turn Sonokinesis off to
+play the normal game without uninstalling anything, show or hide the mod loader's console window, change
+the levels folder, or remove Sonokinesis from the game. A portable zip is also on the releases page for
+running without installing.
 
 Custom levels never change your save file or Steam achievements: saving is paused while a custom level
 runs, and your progress is put back exactly as it was afterwards. Custom levels work in solo and local
 co-op; they are not available in online lobbies.
 
-To remove everything, close the game and run `Uninstall-Sonokinesis.bat`. Your levels are kept.
-
-The full **Sonokinesis** download has the same loader and installer, plus the editor and tools.
+To remove everything, use **Settings → Remove Sonokinesis from the game**, then uninstall the app from
+Windows' Apps list. Your levels are kept.
 
 ## For level makers
 
-Open `Sonokinesis Editor`, click **New**, pick a song and set its BPM in **Level…** (**Detect** guesses
+Open Sonokinesis, go to **Create** and click **New level from a song**, pick a song and set its BPM in **Level…** (**Detect** guesses
 it). Drag shapes, attacks, effects and patterns onto the stage, animate them over the timeline,
 preview with **Space**, and press **F5** to play the level in the game from the playhead.
 
@@ -53,7 +55,7 @@ see is what the game plays.
 
 ## For AI agents
 
-`sonokinesis` (in `tools/`) does everything the editor does, from the command line: create a level from a
+`sonokinesis` (download it from the app's **Create** tab, or `Sonokinesis-AI-Tool` from the releases) does everything the editor does, from the command line: create a level from a
 song (with tempo and beat detection), edit it, write and test scripts, validate it by running it,
 render frames to PNG, play it in the game and drive the editor. `sonokinesis mcp` serves all of it as MCP
 tools, with renders returned as images, so an AI client such as Claude Code can build a level end to

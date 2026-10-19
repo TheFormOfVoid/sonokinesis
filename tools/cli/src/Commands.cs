@@ -209,7 +209,7 @@ public static class Commands
                 return r;
             });
 
-        Add("editor", "Send a command to the running Sonokinesis Editor: ping, state, open {folder}, reload {force}, save, seek {ms}, play {ms}, stop, select {ids}, quit {force}.",
+        Add("editor", "Send a command to the editor in the running Sonokinesis app: ping, state, open {folder}, reload {force}, save, seek {ms}, play {ms}, stop, select {ids}, quit {force}.",
             new[] { "command" }, Props(("command", "string", "Editor command."), ("args", "object", "Its arguments, e.g. {\"folder\": \"...\"}.")),
             a =>
             {
@@ -220,7 +220,7 @@ public static class Commands
                 return Data(res);
             }, "command");
 
-        Add("editor_screenshot", "Screenshot of the running Sonokinesis Editor, optionally after moving the playhead.",
+        Add("editor_screenshot", "Screenshot of the editor in the running Sonokinesis app, optionally after moving the playhead.",
             Array.Empty<string>(), Props(("ms", "number", "Move the playhead here first."), ("out", "string", "PNG path (default: a temp file).")),
             a =>
             {

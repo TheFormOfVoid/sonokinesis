@@ -23,7 +23,7 @@ play, and how to check your work. Read [level-format](../spec/level-format.md) f
    is the real test: ask them what felt unfair, late, early, too easy or too busy, and change that.
 7. Repeat for the next section. Keep `level_info` handy to see what is already there.
 
-If the Sonokinesis Editor is open on the same folder, it reloads whenever you change `level.json` or a
+If the Sonokinesis editor is open on the same folder, it reloads whenever you change `level.json` or a
 script (as long as it has no unsaved edits of its own), so the person can watch the level grow.
 
 ## The format in practice

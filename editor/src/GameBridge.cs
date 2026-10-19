@@ -62,7 +62,7 @@ public static class GameBridge
     {
         var game = FindGame();
         if (game == null) return (false, "Could not find Just Shapes & Beats. Set its folder in Level… → Editor.");
-        if (!LoaderInstalled(game)) return (false, "The Sonokinesis loader is not installed in the game yet. Run the Sonokinesis installer first.");
+        if (!LoaderInstalled(game)) return (false, "Sonokinesis is not installed in the game yet. Go Home and press Play once: it is installed for you.");
         var bridge = Path.Combine(game, "BepInEx", "sonokinesis", "bridge");
         Directory.CreateDirectory(bridge);
         var json = JsonSerializer.Serialize(new { folder = levelFolder, startMs = Math.Max(0, startMs), hard = false });

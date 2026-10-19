@@ -70,7 +70,7 @@ public static class GameLink
     {
         var game = Game();
         if (!File.Exists(Path.Combine(game, "BepInEx", "plugins", "Sonokinesis", "Sonokinesis.Loader.dll")))
-            throw new CliError("the Sonokinesis loader is not installed in the game (run the Sonokinesis installer)");
+            throw new CliError("the Sonokinesis loader is not installed in the game (open the Sonokinesis app and press Play once)");
         var bridge = Path.Combine(DataDir(game), "bridge");
         Directory.CreateDirectory(bridge);
         var status = Path.Combine(bridge, "status.json");
@@ -163,7 +163,7 @@ public static class GameLink
 }
 
 /// <summary>
-/// Drives the running Sonokinesis Editor through %LOCALAPPDATA%/Sonokinesis/editor-bridge (command.json in,
+/// Drives the editor in the running Sonokinesis app through %LOCALAPPDATA%/Sonokinesis/editor-bridge (command.json in,
 /// result.json out). Commands: ping, state, open, reload, save, seek, play, stop, select, shot.
 /// </summary>
 public static class EditorLink
@@ -193,6 +193,6 @@ public static class EditorLink
             }
             catch { }
         }
-        throw new CliError("the editor did not answer (is Sonokinesis Editor running?)");
+        throw new CliError("the editor did not answer (is the Sonokinesis app running?)");
     }
 }

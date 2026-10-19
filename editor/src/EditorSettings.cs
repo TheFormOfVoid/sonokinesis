@@ -16,6 +16,8 @@ public static class EditorSettings
         public string gameDir { get; set; }
         public string levelsRoot { get; set; }
         public string author { get; set; }
+        public bool showConsole { get; set; }
+        public bool checkUpdates { get; set; } = true;
     }
 
     private static Data data = new();
@@ -33,6 +35,20 @@ public static class EditorSettings
     {
         get => data.author ?? "";
         set { data.author = value; Save(); }
+    }
+
+    /// <summary>Whether BepInEx shows its log console next to the game (off unless asked for).</summary>
+    public static bool ShowConsole
+    {
+        get => data.showConsole;
+        set { data.showConsole = value; Save(); }
+    }
+
+    /// <summary>Whether the app looks for a new release when it starts.</summary>
+    public static bool CheckUpdates
+    {
+        get => data.checkUpdates;
+        set { data.checkUpdates = value; Save(); }
     }
 
     public static string LevelsRoot
@@ -58,10 +74,12 @@ public static class EditorSettings
     {
         try
         {
-            // Settings from before the rename (the editor was "Beatform Editor") carry over once.
-            var old = Path.Combine(Path.GetDirectoryName(OS.GetUserDataDir()) ?? "", "Beatform Editor", "settings.json");
-            if (!File.Exists(FilePath) && File.Exists(old))
+            // Settings from older versions carry over once: the app was "Sonokinesis Editor", before
+            // that "Beatform Editor".
+            foreach (var oldName in new[] { "Sonokinesis Editor", "Beatform Editor" })
             {
+                var old = Path.Combine(Path.GetDirectoryName(OS.GetUserDataDir()) ?? "", oldName, "settings.json");
+                if (File.Exists(FilePath) || !File.Exists(old)) continue;
                 Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
                 File.Copy(old, FilePath);
             }

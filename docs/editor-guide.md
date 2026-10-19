@@ -1,4 +1,7 @@
-# Sonokinesis Editor guide
+# Sonokinesis editor guide
+
+The editor is part of the Sonokinesis app: open it from the **Create** tab (or **Edit** on a level in the
+**Levels** tab). **⌂ Home** in its top bar goes back to the app.
 
 The editor makes levels: you lay hazards out on a stage over the song's timeline, preview them with
 the music, and test them in the game. Everything the game can do is reachable from here, including
@@ -155,14 +158,14 @@ The full reference is the [scripting guide](scripting.md).
 
 ## Testing in the game
 
-**Test in game** (F5) starts the level in the running game from the playhead (the game needs the
-Sonokinesis loader, installed by the Sonokinesis installer). It saves the level first (the game plays the saved
+**Test in game** (F5) starts the level in the running game from the playhead (the game needs Sonokinesis
+installed in it: the app does that the first time you press Play). It saves the level first (the game plays the saved
 files), and the game opens it as soon as it is on a menu.
 
 ## Sharing
 
-**Share → Export as .zip** makes one file to give to other players: they drop it onto `Add-Level.bat`
-(in the Sonokinesis or Sonokinesis-Player download) or into their `CustomLevels` folder.
+**Share → Export as .zip** makes one file to give to other players: they drop it on their Sonokinesis
+window, or into their `CustomLevels` folder.
 **Copy into the game's CustomLevels folder** installs it on your own game; **Open level folder** shows
 the files.
 

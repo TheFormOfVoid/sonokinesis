@@ -17,8 +17,10 @@ AI agents.
 
 ## Getting it
 
-The release zip has `tools/sonokinesis.exe` next to the editor (with `library/` and `docs/` beside it),
-and `tools/sono.cmd`, a short name for it: `sono new-level ...` works the same.
+In the Sonokinesis app, open **Create** and press **Download the AI tool**: it lands in the app's `tools`
+folder (`%LOCALAPPDATA%\Programs\Sonokinesis\tools\sonokinesis.exe`, with `library/` and `docs/` beside it),
+and **Copy MCP settings** copies what an AI client needs. `Sonokinesis-AI-Tool` on the releases page is the
+same download as a zip. `sono.cmd` next to it is a short name: `sono new-level ...` works the same.
 To build it from source you need the .NET 8 SDK:
 
 ```bash
@@ -143,8 +145,9 @@ The game is found through Steam's library folders, or set `SONOKINESIS_GAME_DIR`
 
 ## The editor
 
-The running Sonokinesis Editor watches `%LOCALAPPDATA%/Sonokinesis/editor-bridge/command.json` and answers
-in `result.json`. `sonokinesis editor <command>` does the round trip:
+The running Sonokinesis app watches `%LOCALAPPDATA%/Sonokinesis/editor-bridge/command.json` and answers
+in `result.json` (a command switches the app to its editor if it is showing another page).
+`sonokinesis editor <command>` does the round trip:
 
 | command | arguments | effect |
 |---|---|---|

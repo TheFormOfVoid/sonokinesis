@@ -9,7 +9,7 @@ public class Plugin : BasePlugin
 {
     public const string Guid = "dev.sonokinesis.loader";
     public const string Name = "Sonokinesis Loader";
-    public const string Version = "0.2.0";
+    public const string Version = Core.BuildInfo.Version;
 
     internal static ManualLogSource Logger;
     internal static string DataDir;

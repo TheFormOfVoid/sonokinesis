@@ -33,6 +33,8 @@ public partial class App : Control
     {
         Instance = this;
         Theme = UiTheme.Build();
+        // The app around the editor uses another font; the editor keeps its compact default one.
+        Theme.DefaultFont = ThemeDB.FallbackFont;
         GetWindow().Title = "Sonokinesis Editor";
         GetWindow().MinSize = new Vector2I(1100, 640);
         EditorSettings.Load();
@@ -106,10 +108,9 @@ public partial class App : Control
         bar.AddThemeConstantOverride("separation", 6);
         panel.AddChild(bar);
 
-        var logo = new Label { Text = "SONOKINESIS" };
-        logo.AddThemeFontSizeOverride("font_size", 16);
-        logo.AddThemeColorOverride("font_color", UiTheme.Pink);
-        bar.AddChild(logo);
+        var home = Btn("⌂ Home", () => Hub.Hub.I?.CloseEditor(), "Back to the Sonokinesis home: play, levels and settings");
+        home.AddThemeColorOverride("font_color", UiTheme.Pink);
+        bar.AddChild(home);
         bar.AddChild(Spacer(8));
         bar.AddChild(Btn("New", NewLevel, "New level from a song (Ctrl+N)"));
         var open = new MenuButton { Text = "Open ▾", TooltipText = "Open a level (Ctrl+O) or a recent one", Flat = false };
@@ -746,7 +747,7 @@ public partial class App : Control
         if (!Save()) return;
         var game = GameBridge.FindGame();
         if (game == null) { Status("Could not find Just Shapes & Beats. Set its folder in Level… → Editor.", true); return; }
-        var dest = Path.Combine(game, "CustomLevels", Sanitize(S.Doc.Title));
+        var dest = Path.Combine(Hub.GameInstall.LevelsFolder(game), Sanitize(S.Doc.Title));
         try
         {
             Directory.CreateDirectory(dest);
@@ -807,12 +808,29 @@ public partial class App : Control
         return string.IsNullOrEmpty(s) ? "Untitled" : s;
     }
 
-    public override void _Notification(int what)
+    // ---------------- the app around the editor ----------------
+    // Closing the window is handled by the app (Hub), which asks the editor about unsaved work.
+
+    public bool IsAutotest => autotest != null;
+
+    public bool HasUnsavedWork => S.Dirty || UI.ScriptEditorWindow.HasUnsaved;
+
+    public void ConfirmDiscardThen(Action then) => ConfirmDiscard(then);
+
+    /// <summary>Called each time the app switches to the editor.</summary>
+    public void ShownFromHub()
     {
-        if (what == NotificationWMCloseRequest)
-        {
-            if (autotest != null) { GetTree().Quit(); return; }
-            ConfirmDiscard(() => GetTree().Quit());
-        }
+        UpdateTitle();
+        Canvas.QueueRedraw();
+        Timeline.QueueRedraw();
     }
+
+    public void OpenFromHub(string folder)
+    {
+        static string Norm(string p) => Path.GetFullPath(p).TrimEnd(Path.DirectorySeparatorChar, '/');
+        if (S.Doc.FolderPath != null && string.Equals(Norm(S.Doc.FolderPath), Norm(folder), StringComparison.OrdinalIgnoreCase)) return;
+        ConfirmDiscard(() => OpenFolder(folder));
+    }
+
+    public void NewLevelFromHub() => NewLevel();
 }
