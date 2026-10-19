@@ -31,8 +31,12 @@ if (-not $GameDir -or -not (Test-Path (Join-Path $GameDir 'JSB.exe'))) {
 $levels = Join-Path $GameDir 'CustomLevels'
 $cfg = Join-Path $GameDir 'BepInEx\config\dev.sonokinesis.loader.cfg'
 if (Test-Path $cfg) {
-    $m = Select-String -Path $cfg -Pattern '^\s*LevelsFolder\s*=\s*(.+?)\s*$' | Select-Object -First 1
-    if ($m -and $m.Matches[0].Groups[1].Value) { $levels = $m.Matches[0].Groups[1].Value }
+    # An empty setting ("LevelsFolder = ") means the default.
+    $m = Select-String -Path $cfg -Pattern '^\s*LevelsFolder\s*=(.*)$' | Select-Object -First 1
+    if ($m) {
+        $v = $m.Matches[0].Groups[1].Value.Trim().Trim('"')
+        if ($v) { $levels = if ([IO.Path]::IsPathRooted($v)) { $v } else { Join-Path $GameDir $v } }
+    }
 }
 New-Item -ItemType Directory -Force $levels | Out-Null
 
