@@ -7,8 +7,9 @@
   levels folder (Just Shapes & Beats\CustomLevels, or the one set in the loader's settings). A level
   that is already there is replaced. Without anything dropped on it, it opens the custom levels folder.
 #>
+[CmdletBinding(PositionalBinding = $false)]   # dropped paths must never land in -GameDir
 param(
-    [string]$GameDir,
+    [Parameter()][string]$GameDir,
     [Parameter(ValueFromRemainingArguments = $true)][string[]]$Paths
 )
 
